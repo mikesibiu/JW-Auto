@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light Theme -->
+    <style name="Theme.JWLibraryAuto" parent="Theme.AppCompat.Light.DarkActionBar">
+        <item name="colorPrimary">@color/jw_purple</item>
+        <item name="colorPrimaryDark">@color/jw_purple_dark</item>
+        <item name="colorAccent">@color/jw_purple</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">@color/jw_purple_dark</item>
+        <item name="android:navigationBarColor">@android:color/white</item>
+    </style>
+</resources>
