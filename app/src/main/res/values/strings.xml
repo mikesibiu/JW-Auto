@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JW Library Auto</string>
+
+    <!-- Content Categories -->
+    <string name="category_this_week">This Week\'s Meeting Content</string>
+    <string name="category_last_week">Last Week\'s Content</string>
+    <string name="category_next_week">Next Week\'s Content</string>
+    <string name="category_daily_text">Daily Text</string>
+    <string name="category_songs">Kingdom Songs</string>
+    <string name="category_dramas">Bible Dramas</string>
+
+    <!-- Meeting Content -->
+    <string name="content_bible_reading">Bible Reading</string>
+    <string name="content_watchtower">Watchtower Study</string>
+    <string name="content_cbs">Congregation Bible Study</string>
+    <string name="content_workbook">Meeting Workbook</string>
+
+    <!-- Playback -->
+    <string name="notification_channel_name">Audio Playback</string>
+    <string name="notification_channel_desc">Controls for JW Library audio playback</string>
+
+    <!-- Notification Actions -->
+    <string name="action_play">Play</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_next">Next track</string>
+    <string name="action_previous">Previous track</string>
+
+    <!-- Accessibility - Content Descriptions -->
+    <string name="content_desc_play">Play audio</string>
+    <string name="content_desc_pause">Pause audio</string>
+    <string name="content_desc_stop">Stop playback</string>
+    <string name="content_desc_next">Next track</string>
+    <string name="content_desc_previous">Previous track</string>
+
+    <!-- Errors -->
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_content_unavailable">Content not available</string>
+    <string name="error_playback">Playback error occurred</string>
+    <string name="tap_to_retry">Tap to retry</string>
+</resources>

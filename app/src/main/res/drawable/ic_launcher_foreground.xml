@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Safe zone is 66dp centered in 108dp canvas (21dp margins) -->
+    <group
+        android:translateX="21"
+        android:translateY="21">
+        <!-- Simplified Bible/book icon scaled to 66dp -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M8,4h50a4,4 0,0 1,4 4v50a4,4 0,0 1,-4 4H8a4,4 0,0 1,-4 -4V8a4,4 0,0 1,4 -4m4,4v16h12V8H12m16,0v16h12V8H28m-16,20v16h12V28H12m16,0v16h12V28H28m-16,20v16h12V48H12m16,0v16h12V48H28"/>
+    </group>
+</vector>

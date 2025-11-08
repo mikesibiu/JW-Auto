@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- JW.org brand colors -->
+    <color name="jw_purple">#4A148C</color>
+    <color name="jw_purple_dark">#38006B</color>
+    <color name="jw_purple_light">#7C43BD</color>
+
+    <!-- Legacy blue colors (kept for reference) -->
+    <color name="jw_blue">#4A6DA7</color>
+    <color name="jw_blue_dark">#385580</color>
+    <color name="jw_blue_light">#6B8FC7</color>
+
+    <!-- Dark theme colors -->
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <color name="dark_surface_variant">#2C2C2C</color>
+</resources>
