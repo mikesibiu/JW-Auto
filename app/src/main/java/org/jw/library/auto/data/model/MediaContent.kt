@@ -6,4 +6,5 @@ data class MediaContent(
     val subtitle: String? = null,
     val streamUrl: String? = null,
     val isBrowsable: Boolean = false,
+    val playlistUrls: List<String> = emptyList(),
 )

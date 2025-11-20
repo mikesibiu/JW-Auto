@@ -5,20 +5,26 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import androidx.media.session.MediaButtonReceiver
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import androidx.media.session.MediaSessionCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import org.jw.library.auto.R
 import org.jw.library.auto.data.model.MediaContent
 
-class PlaybackManager(private val context: Context) {
+class PlaybackManager(
+    private val context: Context,
+    private val onPlaybackStateChange: (Int) -> Unit
+) {
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -35,7 +41,18 @@ class PlaybackManager(private val context: Context) {
     val mediaSession: MediaSessionCompat = MediaSessionCompat(context, "JWLibraryAuto").apply {
         setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlayFromMediaId(mediaId: String?, extras: android.os.Bundle?) {
-                mediaId?.let { id -> extras?.getString(KEY_STREAM_URI)?.let { uri -> play(MediaContent(id, id, streamUrl = uri)) } }
+                mediaId?.let { id ->
+                    val title = extras?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: id
+                    val playlist = extras?.getStringArrayList(KEY_PLAYLIST)
+                    when {
+                        !playlist.isNullOrEmpty() ->
+                            play(MediaContent(id = id, title = title, playlistUrls = playlist))
+                        extras?.getString(KEY_STREAM_URI) != null -> {
+                            val uri = extras.getString(KEY_STREAM_URI)
+                            play(MediaContent(id = id, title = title, streamUrl = uri))
+                        }
+                    }
+                }
             }
 
             override fun onPlay() {
@@ -59,7 +76,12 @@ class PlaybackManager(private val context: Context) {
     }
 
     init {
-        player.addListener(object : Player.Listener {})
+        player.addListener(object : Player.Listener {
+            override fun onPlayerError(error: PlaybackException) {
+                Log.e(TAG, "Playback error", error)
+                updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
+            }
+        })
         createNotificationChannel()
     }
 
@@ -69,10 +91,20 @@ class PlaybackManager(private val context: Context) {
     }
 
     fun play(content: MediaContent) {
-        content.streamUrl?.let { streamUrl ->
-            val mediaItem = MediaItem.Builder()
-                .setMediaId(content.id)
-                .setUri(streamUrl)
+        val playlist = when {
+            content.playlistUrls.isNotEmpty() -> content.playlistUrls
+            content.streamUrl != null -> listOf(content.streamUrl)
+            else -> emptyList()
+        }
+        if (playlist.isEmpty()) {
+            Log.w(TAG, "No media URLs found for ${content.id}")
+            return
+        }
+
+        val mediaItems = playlist.mapIndexed { index, uri ->
+            MediaItem.Builder()
+                .setMediaId("${content.id}-$index")
+                .setUri(uri)
                 .setMediaMetadata(
                     androidx.media3.common.MediaMetadata.Builder()
                         .setTitle(content.title)
@@ -80,11 +112,18 @@ class PlaybackManager(private val context: Context) {
                         .build()
                 )
                 .build()
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.playWhenReady = true
-            updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
         }
+        player.setMediaItems(mediaItems)
+        player.prepare()
+        player.playWhenReady = true
+        mediaSession.setMetadata(
+            MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, content.id)
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, content.title)
+                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, content.subtitle ?: context.getString(R.string.app_name))
+                .build()
+        )
+        updatePlaybackState(PlaybackStateCompat.STATE_PLAYING)
     }
 
     fun buildRootPlaybackState() = PlaybackStateCompat.Builder()
@@ -153,10 +192,13 @@ class PlaybackManager(private val context: Context) {
                 .setState(state, player.currentPosition, 1.0f)
                 .build()
         )
+        onPlaybackStateChange(state)
     }
 
     companion object {
         const val CHANNEL_ID = "jwlibraryauto.playback"
         const val KEY_STREAM_URI = "stream_uri"
+        const val KEY_PLAYLIST = "playlist_urls"
+        private const val TAG = "PlaybackManager"
     }
 }

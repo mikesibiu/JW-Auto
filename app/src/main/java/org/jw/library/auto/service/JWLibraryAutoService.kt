@@ -1,15 +1,19 @@
 package org.jw.library.auto.service
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import androidx.media.MediaBrowserServiceCompat
+import android.util.Log
+import org.jw.library.auto.background.ContentSyncScheduler
 import org.jw.library.auto.data.ContentRepository
-import org.jw.library.auto.data.model.MediaContent
 import org.jw.library.auto.playback.PlaybackManager
+import java.util.ArrayList
 
 class JWLibraryAutoService : MediaBrowserServiceCompat() {
     private lateinit var contentRepository: ContentRepository
@@ -18,8 +22,20 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
     override fun onCreate() {
         super.onCreate()
         contentRepository = ContentRepository(this)
-        playbackManager = PlaybackManager(this)
+        playbackManager = PlaybackManager(this) { state ->
+            when (state) {
+                PlaybackStateCompat.STATE_PLAYING ->
+                    startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
+                PlaybackStateCompat.STATE_PAUSED ->
+                    stopForegroundCompat(removeNotification = false)
+                PlaybackStateCompat.STATE_STOPPED ->
+                    stopForegroundCompat(removeNotification = true)
+            }
+        }
         sessionToken = playbackManager.mediaSession.sessionToken
+
+        // Schedule background content sync
+        ContentSyncScheduler.schedulePeriodicSync(this)
     }
 
     override fun onGetRoot(
@@ -27,8 +43,11 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot? {
-        // Allow Android Auto and any whitelisted media clients to connect
-        return BrowserRoot(ContentRepository.ROOT_ID, null)
+        return if (isClientAllowed(clientPackageName, clientUid)) {
+            BrowserRoot(ContentRepository.ROOT_ID, null)
+        } else {
+            null
+        }
     }
 
     override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaBrowserCompat.MediaItem>>) {
@@ -40,6 +59,12 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
                 .setExtras(Bundle().apply {
                     content.streamUrl?.let { putString(PlaybackManager.KEY_STREAM_URI, it) }
                     putString(MediaMetadataCompat.METADATA_KEY_TITLE, content.title)
+                    if (content.playlistUrls.isNotEmpty()) {
+                        putStringArrayList(
+                            PlaybackManager.KEY_PLAYLIST,
+                            ArrayList(content.playlistUrls)
+                        )
+                    }
                 })
                 .build()
 
@@ -50,22 +75,6 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         }
 
         result.sendResult(children.toMutableList())
-    }
-
-    override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
-        super.onPlayFromMediaId(mediaId, extras)
-        val streamUrl = extras?.getString(PlaybackManager.KEY_STREAM_URI)
-        val title = extras?.getString(MediaMetadataCompat.METADATA_KEY_TITLE)
-        if (mediaId != null && streamUrl != null) {
-            playbackManager.play(
-                MediaContent(
-                    id = mediaId,
-                    title = title ?: mediaId,
-                    streamUrl = streamUrl
-                )
-            )
-            startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
-        }
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -84,5 +93,32 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
+        private val ALLOWED_CLIENT_PREFIXES = setOf(
+            "com.google.android.projection.gearhead", // Android Auto host + validator processes
+            "com.google.android.car.kitvalidator",    // Validation utility
+            "com.google.android.googlequicksearchbox", // Assistant
+            "com.google.android.gms" // Play Services sometimes mediates
+        )
+        private const val TAG = "JWLibraryAutoService"
+    }
+
+    private fun stopForegroundCompat(removeNotification: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(if (removeNotification) STOP_FOREGROUND_REMOVE else STOP_FOREGROUND_DETACH)
+        } else {
+            @Suppress("DEPRECATION")
+            stopForeground(removeNotification)
+        }
+    }
+
+    private fun isClientAllowed(clientPackage: String?, clientUid: Int): Boolean {
+        if (clientPackage == null) return false
+        if (clientPackage == packageName) return true
+        if (ALLOWED_CLIENT_PREFIXES.none { clientPackage.startsWith(it) }) {
+            Log.w(TAG, "Rejecting media client $clientPackage")
+            return false
+        }
+        val packagesForUid = packageManager.getPackagesForUid(clientUid) ?: return false
+        return packagesForUid.contains(clientPackage)
     }
 }

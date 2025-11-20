@@ -1,155 +1,268 @@
 package org.jw.library.auto.data.api
 
-import org.jw.library.auto.data.model.MeetingContentType
-import org.jw.library.auto.data.model.WeekInfo
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-/**
- * Provides audio content URLs from jw.org
- *
- * VALIDATED URLS - Updated November 7, 2025:
- * - Meeting Workbook: ✅ Verified working (Nov 3-9, 2025)
- * - Watchtower: ✅ Verified working (Nov 2025 issue)
- * - Bible Audio: ⚠️ Old URLs are 404, needs update
- * - CBS: ⚠️ Needs update for current study book
- * - Kingdom Songs: ⚠️ Needs validation
- *
- * URL Pattern (Updated):
- * - Meeting Workbook: https://cfp2.jw-cdn.org/a/[hash]/1/o/mwb_E_[YYYYMM]_[week].mp3
- * - Watchtower: https://cfp2.jw-cdn.org/a/[hash]/1/o/w_E_[YYYYMM]_[article].mp3
- * - Bible audio: (Old pattern broken, needs new API research)
- */
 object JWOrgContentUrls {
+    private val YEAR_MONTH_FORMAT = DateTimeFormatter.ofPattern("yyyyMM")
 
-    /**
-     * Bible reading audio URLs (New World Translation)
-     * These are SAMPLE URLs - replace with actual working URLs from jw.org
-     */
-    private val BIBLE_AUDIO_SAMPLES = mapOf(
-        "Genesis_1" to "https://download-a.akamaihd.net/files/media_audio/01/nwtsty_E_01_r720P.mp3",
-        "Exodus_1" to "https://download-a.akamaihd.net/files/media_audio/02/nwtsty_E_02_r720P.mp3",
-        "Matthew_1" to "https://download-a.akamaihd.net/files/media_audio/40/nwtsty_E_40_r720P.mp3"
+    // Fallback targets allow demo playback even when specific week URLs are missing
+    private const val WORKBOOK_FALLBACK = "https://b.jw-cdn.org/files/media_audio/mwb/202412_mwb_E.mp3"
+    private const val WATCHTOWER_FALLBACK = "https://b.jw-cdn.org/files/media_audio/w/202401_w_E.mp3"
+
+    fun meetingWorkbookUrl(weekStart: LocalDate): String {
+        val key = weekStart.toString()
+        val override = WORKBOOK_OVERRIDES[key]
+        if (override != null) return override
+        val yearMonth = YEAR_MONTH_FORMAT.format(weekStart)
+        return "https://b.jw-cdn.org/files/media_audio/mwb/${yearMonth}_mwb_E.mp3"
+    }
+
+    fun watchtowerStudyUrl(weekStart: LocalDate): String {
+        val key = weekStart.toString()
+        val override = WATCHTOWER_OVERRIDES[key]
+        if (override != null) return override
+        return WATCHTOWER_FALLBACK
+    }
+
+    fun bibleReadingUrls(weekStart: LocalDate): List<String> {
+        val key = weekStart.toString()
+        return MEETING_SECTIONS[key]?.bibleReading ?: emptyList()
+    }
+
+    fun congregationStudyUrls(weekStart: LocalDate): List<String> {
+        val key = weekStart.toString()
+        return MEETING_SECTIONS[key]?.congregationStudy ?: emptyList()
+    }
+
+    private val WORKBOOK_OVERRIDES = mapOf(
+        "2025-11-03" to "https://cfp2.jw-cdn.org/a/b5898cd/1/o/mwb_E_202511_01.mp3",
+        "2025-11-10" to "https://cfp2.jw-cdn.org/a/056fb19/1/o/mwb_E_202511_02.mp3",
+        "2025-11-17" to "https://cfp2.jw-cdn.org/a/52f6fc0/1/o/mwb_E_202511_03.mp3",
+        "2025-11-24" to "https://cfp2.jw-cdn.org/a/80c47d/1/o/mwb_E_202511_04.mp3",
+        "2025-12-01" to "https://cfp2.jw-cdn.org/a/5fc7877/1/o/mwb_E_202511_05.mp3",
+        "2025-12-08" to "https://cfp2.jw-cdn.org/a/8c02906/1/o/mwb_E_202511_06.mp3",
+        "2025-12-15" to "https://cfp2.jw-cdn.org/a/28b09db/1/o/mwb_E_202511_07.mp3",
+        "2025-12-22" to "https://cfp2.jw-cdn.org/a/6f747e2/1/o/mwb_E_202511_08.mp3",
+        "2025-12-29" to "https://cfp2.jw-cdn.org/a/2aa888/1/o/mwb_E_202511_09.mp3",
+        "2026-01-05" to "https://cfp2.jw-cdn.org/a/394ee97/1/o/mwb_E_202601_01.mp3",
+        "2026-01-12" to "https://cfp2.jw-cdn.org/a/884cd3/1/o/mwb_E_202601_02.mp3",
+        "2026-01-19" to "https://cfp2.jw-cdn.org/a/d8bc927/1/o/mwb_E_202601_03.mp3",
+        "2026-01-26" to "https://cfp2.jw-cdn.org/a/611194/1/o/mwb_E_202601_04.mp3",
+        "2026-02-02" to "https://cfp2.jw-cdn.org/a/bbeaa61/1/o/mwb_E_202601_05.mp3",
+        "2026-02-09" to "https://cfp2.jw-cdn.org/a/b72739/1/o/mwb_E_202601_06.mp3",
+        "2026-02-16" to "https://cfp2.jw-cdn.org/a/c97c260/1/o/mwb_E_202601_07.mp3",
+        "2026-02-23" to "https://cfp2.jw-cdn.org/a/ce27e58/1/o/mwb_E_202601_08.mp3",
     )
 
-    /**
-     * Meeting Workbook audio URLs - November-December 2025
-     * Updated: November 7, 2025 - All weeks validated
-     */
-    private val WORKBOOK_URLS = mapOf(
-        "2025-11-03" to "https://cfp2.jw-cdn.org/a/b5898cd/1/o/mwb_E_202511_01.mp3",  // Nov 3-9
-        "2025-11-10" to "https://cfp2.jw-cdn.org/a/056fb19/1/o/mwb_E_202511_02.mp3",  // Nov 10-16
-        "2025-11-17" to "https://cfp2.jw-cdn.org/a/52f6fc0/1/o/mwb_E_202511_03.mp3",  // Nov 17-23
-        "2025-11-24" to "https://cfp2.jw-cdn.org/a/80c47d/1/o/mwb_E_202511_04.mp3",   // Nov 24-30
-        "2025-12-01" to "https://cfp2.jw-cdn.org/a/5fc7877/1/o/mwb_E_202511_05.mp3",  // Dec 1-7
-        "2025-12-08" to "https://cfp2.jw-cdn.org/a/8c02906/1/o/mwb_E_202511_06.mp3",  // Dec 8-14
-        "2025-12-15" to "https://cfp2.jw-cdn.org/a/28b09db/1/o/mwb_E_202511_07.mp3",  // Dec 15-21
-        "2025-12-22" to "https://cfp2.jw-cdn.org/a/6f747e2/1/o/mwb_E_202511_08.mp3",  // Dec 22-28
-        "2025-12-29" to "https://cfp2.jw-cdn.org/a/2aa888/1/o/mwb_E_202511_09.mp3"    // Dec 29-Jan 4
+    private val WATCHTOWER_OVERRIDES = mapOf(
+        "2025-11-10" to "https://cfp2.jw-cdn.org/a/861929/1/o/w_E_202509_01.mp3",
+        "2025-11-17" to "https://cfp2.jw-cdn.org/a/6a6aca/1/o/w_E_202509_02.mp3",
+        "2025-11-24" to "https://cfp2.jw-cdn.org/a/155ba6/1/o/w_E_202509_03.mp3",
+        "2025-12-01" to "https://cfp2.jw-cdn.org/a/4edd2f/1/o/w_E_202509_04.mp3",
+        "2025-12-08" to "https://cfp2.jw-cdn.org/a/bc2fdcd/1/o/w_E_202510_02.mp3",
+        "2025-12-15" to "https://cfp2.jw-cdn.org/a/dba45f/1/o/w_E_202510_03.mp3",
+        "2025-12-22" to "https://cfp2.jw-cdn.org/a/d9f278/1/o/w_E_202510_04.mp3",
+        "2025-12-29" to "https://cfp2.jw-cdn.org/a/208489/1/o/w_E_202510_05.mp3",
+        "2026-01-05" to "https://cfp2.jw-cdn.org/a/cba6bc/1/o/w_E_202511_01.mp3",
+        "2026-01-12" to "https://cfp2.jw-cdn.org/a/cd10e9/1/o/w_E_202511_03.mp3",
+        "2026-01-19" to "https://cfp2.jw-cdn.org/a/46091e/1/o/w_E_202511_04.mp3",
+        "2026-01-26" to "https://cfp2.jw-cdn.org/a/c69c8d8/3/o/w_E_202511_05.mp3",
+        "2026-02-02" to "https://cfp2.jw-cdn.org/a/6fa2e3/1/o/w_E_202512_01.mp3",
+        "2026-02-09" to "https://cfp2.jw-cdn.org/a/e58ace/1/o/w_E_202512_02.mp3",
+        "2026-02-16" to "https://cfp2.jw-cdn.org/a/3f127c5/1/o/w_E_202512_03.mp3",
+        "2026-02-23" to "https://cfp2.jw-cdn.org/a/d62b6e/1/o/w_E_202512_04.mp3",
+        "2026-03-02" to "https://cfp2.jw-cdn.org/a/b72bcf/1/o/w_E_202601_01.mp3",
+        "2026-03-09" to "https://cfp2.jw-cdn.org/a/10da6f/1/o/w_E_202601_02.mp3",
+        "2026-03-16" to "https://cfp2.jw-cdn.org/a/c9fd64/1/o/w_E_202601_03.mp3",
+        "2026-03-23" to "https://cfp2.jw-cdn.org/a/4e84476/3/o/w_E_202601_04.mp3",
+        "2026-03-30" to "https://cfp2.jw-cdn.org/a/1b40b22/1/o/w_E_202601_05.mp3",
+        "2026-04-06" to "https://cfp2.jw-cdn.org/a/b72976b/1/o/w_E_202602_01.mp3",
+        "2026-04-13" to "https://cfp2.jw-cdn.org/a/94e731/1/o/w_E_202602_02.mp3",
+        "2026-04-20" to "https://cfp2.jw-cdn.org/a/f4acbdf/1/o/w_E_202602_03.mp3",
+        "2026-04-27" to "https://cfp2.jw-cdn.org/a/3cf4546/1/o/w_E_202602_04.mp3",
     )
 
-    /**
-     * Watchtower Study audio URLs - November 2025
-     * Updated: November 7, 2025
-     * Study dates: January 5 - February 1, 2026
-     */
-    private val WATCHTOWER_URLS = mapOf(
-        "2026-01-05" to "https://cfp2.jw-cdn.org/a/cba6bc/1/o/w_E_202511_01.mp3",     // Jan 5-11: Maintain Your Joy in Old Age
-        "2026-01-12" to "https://cfp2.jw-cdn.org/a/cd10e9/1/o/w_E_202511_03.mp3",     // Jan 12-18: Maintain Your Joy as a Caregiver
-        "2026-01-19" to "https://cfp2.jw-cdn.org/a/46091e/1/o/w_E_202511_04.mp3",     // Jan 19-25: Consider Our Sympathetic High Priest
-        "2026-01-26" to "https://cfp2.jw-cdn.org/a/c69c8d8/3/o/w_E_202511_05.mp3"     // Jan 26-Feb 1: "You Are Someone Very Precious"!
+    private data class MeetingSections(
+        val bibleReading: List<String>,
+        val congregationStudy: List<String>,
     )
 
-    /**
-     * Congregation Bible Study audio
-     * TODO: Update with current study book
-     */
-    private const val CBS_SAMPLE = "https://download-a.akamaihd.net/files/media_audio/bf/bhs_E.mp3"
-
-    /**
-     * Sample Kingdom Song
-     */
-    private const val SONG_SAMPLE = "https://download-a.akamaihd.net/files/media_audio/sng/nwtsty_E_sng_001.mp3"
-
-    /**
-     * Get audio URL for specific meeting content type and week
-     *
-     * Uses weekInfo.getWeekKey() to select the correct URL for that week
-     * Automatically selects the right content based on the week's start date
-     */
-    fun getContentUrl(type: MeetingContentType, weekInfo: WeekInfo): String {
-        // Format the week start date as YYYY-MM-DD for lookup
-        val weekKey = weekInfo.getWeekKey()
-
-        return when (type) {
-            MeetingContentType.BIBLE_READING -> {
-                // Demo: Returns Genesis 1
-                // TODO: Calculate which Bible chapters are assigned for this week
-                BIBLE_AUDIO_SAMPLES["Genesis_1"] ?: BIBLE_AUDIO_SAMPLES.values.first()
-            }
-            MeetingContentType.WATCHTOWER -> {
-                // Look up Watchtower by week start date (study dates are in January 2026)
-                WATCHTOWER_URLS[weekKey] ?: WATCHTOWER_URLS.values.firstOrNull() ?: ""
-            }
-            MeetingContentType.CBS -> CBS_SAMPLE
-            MeetingContentType.WORKBOOK -> {
-                // Look up Workbook by week start date (Nov-Dec 2025)
-                WORKBOOK_URLS[weekKey] ?: WORKBOOK_URLS.values.firstOrNull() ?: ""
-            }
-        }
-    }
-
-    /**
-     * Get Kingdom Song URL by song number
-     */
-    fun getSongUrl(songNumber: Int): String {
-        // Demo: Always returns song 1
-        // TODO: Format with actual song number (001-151)
-        return SONG_SAMPLE
-    }
-
-    /**
-     * Check if URL is valid and accessible
-     * Returns true for demo purposes
-     */
-    suspend fun isUrlAccessible(url: String): Boolean {
-        // TODO: Implement HEAD request to check if URL exists
-        return true
-    }
-
-    /**
-     * Get available date ranges for content
-     * Useful for debugging and displaying to users
-     */
-    fun getAvailableWeeks(): Map<String, List<String>> {
-        return mapOf(
-            "Workbook" to WORKBOOK_URLS.keys.sorted(),
-            "Watchtower" to WATCHTOWER_URLS.keys.sorted()
-        )
-    }
-
-    /**
-     * Check if content is available for a specific week
-     */
-    fun hasContentForWeek(type: MeetingContentType, weekKey: String): Boolean {
-        return when (type) {
-            MeetingContentType.WORKBOOK -> WORKBOOK_URLS.containsKey(weekKey)
-            MeetingContentType.WATCHTOWER -> WATCHTOWER_URLS.containsKey(weekKey)
-            MeetingContentType.BIBLE_READING -> BIBLE_AUDIO_SAMPLES.isNotEmpty()
-            MeetingContentType.CBS -> true
-        }
-    }
-
-    /**
-     * Helper to get actual URLs from jw.org
-     * Instructions for manual URL collection:
-     *
-     * 1. Open browser to: https://www.jw.org/en/library/jw-meeting-workbook/
-     * 2. Find current month's workbook
-     * 3. Click "Audio download options"
-     * 4. Right-click MP3 download → "Copy link address"
-     * 5. Update WORKBOOK_SAMPLE constant above
-     *
-     * Repeat for other content types:
-     * - Bible: https://www.jw.org/en/library/bible/study-bible/books/
-     * - Watchtower: https://www.jw.org/en/library/magazines/
-     */
+    private val MEETING_SECTIONS = mapOf(
+        "2025-11-03" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/6f232a3/1/o/bi12_22_Ca_E_02.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/7f4ac57/1/o/lfb_E_033.mp3",
+                "https://cfp2.jw-cdn.org/a/759436/1/o/lfb_E_034.mp3",
+            )
+        ),
+        "2025-11-10" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/a509da/1/o/bi12_22_Ca_E_03.mp3",
+                "https://cfp2.jw-cdn.org/a/a985a6/1/o/bi12_22_Ca_E_04.mp3",
+                "https://cfp2.jw-cdn.org/a/71cb20/1/o/bi12_22_Ca_E_05.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/0a687c/1/o/lfb_E_035.mp3",
+                "https://cfp2.jw-cdn.org/a/15065e/1/o/lfb_E_036.mp3",
+            )
+        ),
+        "2025-11-17" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/7fb7bc/1/o/bi12_22_Ca_E_06.mp3",
+                "https://cfp2.jw-cdn.org/a/66c957e/1/o/bi12_22_Ca_E_07.mp3",
+                "https://cfp2.jw-cdn.org/a/ca3686/1/o/bi12_22_Ca_E_08.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/403ddc0/1/o/lfb_E_037.mp3",
+                "https://cfp2.jw-cdn.org/a/63395b/1/o/lfb_E_038.mp3",
+            )
+        ),
+        "2025-11-24" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/b19272/1/o/bi12_23_Isa_E_01.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/51d9f2/1/o/lfb_E_039.mp3",
+                "https://cfp2.jw-cdn.org/a/d16450/1/o/lfb_E_040.mp3",
+            )
+        ),
+        "2025-12-01" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/2d02b6/1/o/bi12_23_Isa_E_02.mp3",
+                "https://cfp2.jw-cdn.org/a/d2d454/1/o/bi12_23_Isa_E_03.mp3",
+                "https://cfp2.jw-cdn.org/a/022522/1/o/bi12_23_Isa_E_04.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/f68f93/1/o/lfb_E_041.mp3",
+                "https://cfp2.jw-cdn.org/a/4dd7c77/1/o/lfb_E_042.mp3",
+            )
+        ),
+        "2025-12-08" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/0727398/1/o/bi12_23_Isa_E_05.mp3",
+                "https://cfp2.jw-cdn.org/a/8af58d/1/o/bi12_23_Isa_E_06.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/3c11f2/1/o/lfb_E_043.mp3",
+                "https://cfp2.jw-cdn.org/a/08e860/1/o/lfb_E_044.mp3",
+            )
+        ),
+        "2025-12-15" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/ea50425/1/o/bi12_23_Isa_E_07.mp3",
+                "https://cfp2.jw-cdn.org/a/af69fa/1/o/bi12_23_Isa_E_08.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/208f71/1/o/lfb_E_045.mp3",
+            )
+        ),
+        "2025-12-22" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/571d9f/1/o/bi12_23_Isa_E_09.mp3",
+                "https://cfp2.jw-cdn.org/a/5880ca/1/o/bi12_23_Isa_E_10.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/0c8eeb/1/o/lfb_E_046.mp3",
+                "https://cfp2.jw-cdn.org/a/87e49a/1/o/lfb_E_047.mp3",
+            )
+        ),
+        "2025-12-29" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/f94f77/1/o/bi12_23_Isa_E_11.mp3",
+                "https://cfp2.jw-cdn.org/a/7ac043/1/o/bi12_23_Isa_E_12.mp3",
+                "https://cfp2.jw-cdn.org/a/d132f1/1/o/bi12_23_Isa_E_13.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/0073379/1/o/lfb_E_048.mp3",
+                "https://cfp2.jw-cdn.org/a/5c22bf/1/o/lfb_E_049.mp3",
+            )
+        ),
+        "2026-01-05" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/2adc6f0/1/o/bi12_23_Isa_E_14.mp3",
+                "https://cfp2.jw-cdn.org/a/146977/1/o/bi12_23_Isa_E_15.mp3",
+                "https://cfp2.jw-cdn.org/a/e71f21/1/o/bi12_23_Isa_E_16.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/3cdb4b1/1/o/lfb_E_050.mp3",
+                "https://cfp2.jw-cdn.org/a/48d261a/1/o/lfb_E_051.mp3",
+            )
+        ),
+        "2026-01-12" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/08e9fb/1/o/bi12_23_Isa_E_17.mp3",
+                "https://cfp2.jw-cdn.org/a/dfd597/1/o/bi12_23_Isa_E_18.mp3",
+                "https://cfp2.jw-cdn.org/a/4f20ec3/1/o/bi12_23_Isa_E_19.mp3",
+                "https://cfp2.jw-cdn.org/a/c871a1/1/o/bi12_23_Isa_E_20.mp3",
+                "https://cfp2.jw-cdn.org/a/f74e414/1/o/bi12_23_Isa_E_21.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/93b9f9a/1/o/lfb_E_052.mp3",
+                "https://cfp2.jw-cdn.org/a/ee61fe/1/o/lfb_E_053.mp3",
+            )
+        ),
+        "2026-01-19" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/cad88b/1/o/bi12_23_Isa_E_22.mp3",
+                "https://cfp2.jw-cdn.org/a/8692cc1/1/o/bi12_23_Isa_E_23.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/e109b19/1/o/lfb_E_054.mp3",
+            )
+        ),
+        "2026-01-26" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/9bd174/1/o/bi12_23_Isa_E_24.mp3",
+                "https://cfp2.jw-cdn.org/a/5c0ff1c/1/o/bi12_23_Isa_E_25.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/a1b212/1/o/lfb_E_055.mp3",
+            )
+        ),
+        "2026-02-02" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/e18340/1/o/bi12_23_Isa_E_26.mp3",
+                "https://cfp2.jw-cdn.org/a/96003f/1/o/bi12_23_Isa_E_27.mp3",
+                "https://cfp2.jw-cdn.org/a/2d1b1fc/1/o/bi12_23_Isa_E_28.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/8d3330/1/o/lfb_E_056.mp3",
+                "https://cfp2.jw-cdn.org/a/c786616/1/o/lfb_E_057.mp3",
+            )
+        ),
+        "2026-02-09" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/c4f37e/1/o/bi12_23_Isa_E_29.mp3",
+                "https://cfp2.jw-cdn.org/a/e2a8c7/1/o/bi12_23_Isa_E_30.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/7fd902/1/o/lfb_E_058.mp3",
+                "https://cfp2.jw-cdn.org/a/4c2f33/1/o/lfb_E_059.mp3",
+            )
+        ),
+        "2026-02-16" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/2fd33a/1/o/bi12_23_Isa_E_31.mp3",
+                "https://cfp2.jw-cdn.org/a/9f5d01/1/o/bi12_23_Isa_E_32.mp3",
+                "https://cfp2.jw-cdn.org/a/7fa8dc/1/o/bi12_23_Isa_E_33.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/416c29/1/o/lfb_E_060.mp3",
+                "https://cfp2.jw-cdn.org/a/82c8ab/1/o/lfb_E_061.mp3",
+            )
+        ),
+        "2026-02-23" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/4baacf/1/o/bi12_23_Isa_E_34.mp3",
+                "https://cfp2.jw-cdn.org/a/ca7e1e/1/o/bi12_23_Isa_E_35.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/14cb06c/1/o/lfb_E_062.mp3",
+                "https://cfp2.jw-cdn.org/a/e3530e/1/o/lfb_E_063.mp3",
+            )
+        ),
+    )
 }

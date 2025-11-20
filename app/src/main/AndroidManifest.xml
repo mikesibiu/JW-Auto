@@ -35,6 +35,11 @@
             </intent-filter>
         </activity>
 
+        <!-- Android Auto descriptor reference -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!-- MediaBrowserService for Android Auto -->
         <service
             android:name=".service.JWLibraryAutoService"
@@ -43,11 +48,6 @@
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
-
-            <!-- Android Auto integration -->
-            <meta-data
-                android:name="com.google.android.gms.car.application"
-                android:resource="@xml/automotive_app_desc" />
         </service>
 
         <!-- Media Button Receiver -->
