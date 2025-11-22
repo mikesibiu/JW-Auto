@@ -9,13 +9,15 @@ import androidx.room.RoomDatabase
  * Room database for caching JW.org content
  */
 @Database(
-    entities = [CachedContent::class],
-    version = 1,
+    entities = [CachedContent::class, CachedSong::class, PlaybackPosition::class],
+    version = 3,
     exportSchema = false
 )
 abstract class ContentDatabase : RoomDatabase() {
 
     abstract fun contentDao(): ContentDao
+    abstract fun songDao(): SongDao
+    abstract fun playbackPositionDao(): PlaybackPositionDao
 
     companion object {
         @Volatile

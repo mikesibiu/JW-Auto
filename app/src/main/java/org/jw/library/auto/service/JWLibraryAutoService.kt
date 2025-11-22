@@ -4,25 +4,36 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.util.Log
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import androidx.media.MediaBrowserServiceCompat
-import android.util.Log
 import org.jw.library.auto.background.ContentSyncScheduler
 import org.jw.library.auto.data.ContentRepository
+import org.jw.library.auto.data.PlaybackPositionRepository
 import org.jw.library.auto.playback.PlaybackManager
 import java.util.ArrayList
+import androidx.media.MediaBrowserServiceCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class JWLibraryAutoService : MediaBrowserServiceCompat() {
     private lateinit var contentRepository: ContentRepository
     private lateinit var playbackManager: PlaybackManager
+    private lateinit var playbackPositionRepository: PlaybackPositionRepository
+    private val serviceJob = SupervisorJob()
+    private val serviceScope = CoroutineScope(serviceJob + Dispatchers.Main)
 
     override fun onCreate() {
         super.onCreate()
         contentRepository = ContentRepository(this)
-        playbackManager = PlaybackManager(this) { state ->
+        playbackPositionRepository = PlaybackPositionRepository(this)
+        playbackManager = PlaybackManager(this) { state, position ->
             when (state) {
                 PlaybackStateCompat.STATE_PLAYING ->
                     startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
@@ -31,11 +42,22 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
                 PlaybackStateCompat.STATE_STOPPED ->
                     stopForegroundCompat(removeNotification = true)
             }
+            val currentId = playbackManager.mediaSession.controller.metadata?.description?.mediaId
+            if (currentId != null) {
+                serviceScope.launch(Dispatchers.IO) {
+                    playbackPositionRepository.save(currentId, position)
+                }
+            }
         }
         sessionToken = playbackManager.mediaSession.sessionToken
 
         // Schedule background content sync
         ContentSyncScheduler.schedulePeriodicSync(this)
+        ContentSyncScheduler.scheduleImmediateSync(this)
+
+        // Ensure we call startForeground quickly after Android Auto starts the service
+        startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
+        stopForegroundCompat(removeNotification = false)
     }
 
     override fun onGetRoot(
@@ -51,30 +73,44 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
     }
 
     override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaBrowserCompat.MediaItem>>) {
-        val children = contentRepository.getChildren(parentId).map { content ->
-            val description = MediaDescriptionCompat.Builder()
-                .setMediaId(content.id)
-                .setTitle(content.title)
-                .setSubtitle(content.subtitle)
-                .setExtras(Bundle().apply {
-                    content.streamUrl?.let { putString(PlaybackManager.KEY_STREAM_URI, it) }
-                    putString(MediaMetadataCompat.METADATA_KEY_TITLE, content.title)
-                    if (content.playlistUrls.isNotEmpty()) {
-                        putStringArrayList(
-                            PlaybackManager.KEY_PLAYLIST,
-                            ArrayList(content.playlistUrls)
-                        )
+        result.detach()
+        serviceScope.launch {
+            try {
+                val mediaContents = withContext(Dispatchers.IO) {
+                    contentRepository.getChildren(parentId)
+                }
+                val mediaItems = mediaContents.map { content ->
+                    val lastPosition = withContext(Dispatchers.IO) {
+                        playbackPositionRepository.get(content.id)
                     }
-                })
-                .build()
+                    val description = MediaDescriptionCompat.Builder()
+                        .setMediaId(content.id)
+                        .setTitle(content.title)
+                        .setSubtitle(content.subtitle)
+                        .setExtras(Bundle().apply {
+                            content.streamUrl?.let { putString(PlaybackManager.KEY_STREAM_URI, it) }
+                            putString(MediaMetadataCompat.METADATA_KEY_TITLE, content.title)
+                            if (content.playlistUrls.isNotEmpty()) {
+                                putStringArrayList(
+                                    PlaybackManager.KEY_PLAYLIST,
+                                    ArrayList(content.playlistUrls)
+                                )
+                            }
+                            putLong(PlaybackManager.KEY_LAST_POSITION, lastPosition)
+                        })
+                        .build()
 
-            MediaBrowserCompat.MediaItem(
-                description,
-                if (content.isBrowsable) MediaBrowserCompat.MediaItem.FLAG_BROWSABLE else MediaBrowserCompat.MediaItem.FLAG_PLAYABLE
-            )
+                    MediaBrowserCompat.MediaItem(
+                        description,
+                        if (content.isBrowsable) MediaBrowserCompat.MediaItem.FLAG_BROWSABLE else MediaBrowserCompat.MediaItem.FLAG_PLAYABLE
+                    )
+                }
+                result.sendResult(mediaItems.toMutableList())
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to load children for $parentId", t)
+                result.sendResult(mutableListOf())
+            }
         }
-
-        result.sendResult(children.toMutableList())
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
@@ -85,6 +121,7 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
     override fun onDestroy() {
         super.onDestroy()
         playbackManager.release()
+        serviceScope.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

@@ -58,6 +58,14 @@ class ContentSyncWorker(
                 }
             }
 
+            // Refresh Kingdom songs catalog separately (weekly cadence is sufficient)
+            try {
+                val songs = repository.getKingdomSongs(forceRefresh = true)
+                Log.d(TAG, "Synced ${songs.size} kingdom songs")
+            } catch (songError: Exception) {
+                Log.w(TAG, "Failed to sync kingdom songs", songError)
+            }
+
             Log.i(TAG, "Content sync completed successfully")
             Result.success()
         } catch (e: Exception) {
