@@ -16,7 +16,10 @@ data class MediaFile(
     val label: String?,
 
     @SerializedName("track")
-    val track: Int?
+    val track: Int?,
+
+    @SerializedName("booknum")
+    val bookNumber: Int?
 )
 
 data class FileInfo(

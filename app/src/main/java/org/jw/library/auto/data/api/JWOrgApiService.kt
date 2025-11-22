@@ -23,6 +23,8 @@ interface JWOrgApiService {
     suspend fun getPublicationMedia(
         @Query("pub") pub: String,
         @Query("issue") issue: String? = null,
+        @Query("track") track: Int? = null,
+        @Query("booknum") booknum: Int? = null,
         @Query("fileformat") fileformat: String = "MP3",
         @Query("langwritten") langwritten: String = "E",
         @Query("output") output: String = "json",

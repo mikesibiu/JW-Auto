@@ -6,29 +6,61 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import org.jw.library.auto.data.api.ApiClient
 import org.jw.library.auto.data.api.JWOrgContentUrls
+import org.jw.library.auto.data.api.MediatorApiClient
+import org.jw.library.auto.data.api.MediatorApiService
+import org.jw.library.auto.data.api.MediatorMediaItem
+import org.jw.library.auto.data.bible.BibleAudioParser
+import org.jw.library.auto.data.bible.BibleBooks
 import org.jw.library.auto.data.cache.CachedContent
+import org.jw.library.auto.data.cache.CachedSong
 import org.jw.library.auto.data.cache.ContentDatabase
+import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
+import org.jw.library.auto.data.model.api.MediaFile
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlin.jvm.Volatile
 
 /**
  * Repository for fetching JW.org content dynamically via API
  * Cache-first strategy: Check cache → Try API → Fall back to hard-coded URLs
  */
+data class BroadcastingProgram(
+    val id: String,
+    val title: String,
+    val streamUrl: String,
+    val publishedDate: String? = null
+)
+
 class JWOrgRepository(
     private val context: Context,
-    private val apiService: org.jw.library.auto.data.api.JWOrgApiService = ApiClient.jwOrgApi
+    private val apiService: org.jw.library.auto.data.api.JWOrgApiService = ApiClient.jwOrgApi,
+    private val mediatorService: MediatorApiService = MediatorApiClient.service
 ) {
     private val yearMonthFormat = DateTimeFormatter.ofPattern("yyyyMM")
     private val gson = Gson()
     private val contentDao by lazy { ContentDatabase.getDatabase(context).contentDao() }
+    private val songDao by lazy { ContentDatabase.getDatabase(context).songDao() }
+
+    data class BibleBookAudio(val intro: String?, val chapters: List<String>)
+
+    @Volatile private var bibleCatalog: Map<Int, BibleBookAudio>? = null
 
     companion object {
         private const val TAG = "JWOrgRepository"
         private const val PUB_WORKBOOK = "mwb"
         private const val PUB_WATCHTOWER = "w"
         private const val PUB_LESSONS = "lfb"
+        private const val PUB_SONGBOOK = "sjjc"  // Vocal version (with singing)
+        private const val PUB_BIBLE = "nwt"
+        private const val SONG_CACHE_TTL_MILLIS = 30L * 24 * 60 * 60 * 1000
+        private val SONG_NUMBER_REGEX = Regex("(\\d+)")
+
+        // Mediator API categories
+        private const val MEDIATOR_LANGUAGE = "E"
+        private const val CATEGORY_MONTHLY_PROGRAMS = "StudioMonthlyPrograms"
+        private const val CATEGORY_GB_UPDATES = "StudioNewsReports"
+        private const val PREFERRED_VIDEO_QUALITY = "240p"
     }
 
     /**
@@ -241,5 +273,155 @@ class JWOrgRepository(
 
     private fun fallbackCongregationStudyUrls(weekStart: LocalDate): List<String> {
         return JWOrgContentUrls.congregationStudyUrls(weekStart)
+    }
+
+    suspend fun getBibleBookAudio(bookNumber: Int): BibleBookAudio {
+        return ensureBibleCatalog()[bookNumber] ?: BibleBookAudio(intro = null, chapters = emptyList())
+    }
+
+    private suspend fun ensureBibleCatalog(): Map<Int, BibleBookAudio> {
+        bibleCatalog?.let { return it }
+        return try {
+            val response = apiService.getPublicationMedia(pub = PUB_BIBLE)
+            val mp3Files = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
+            val grouped = BibleAudioParser.groupByBook(mp3Files)
+            bibleCatalog = grouped
+            grouped
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to build Bible catalog", e)
+            emptyMap()
+        }
+    }
+
+    suspend fun getKingdomSongs(forceRefresh: Boolean = false): List<KingdomSong> {
+        val cached = songDao.getAllSongs()
+        val now = System.currentTimeMillis()
+        val stale = cached.isEmpty() || now - cached.minOf { it.fetchedAt } > SONG_CACHE_TTL_MILLIS
+        if (cached.isNotEmpty() && !forceRefresh && !stale) {
+            Log.d(TAG, "Using cached kingdom songs (${cached.size})")
+            return cached.toDomain()
+        }
+
+        return try {
+            val songs = fetchSongsFromApi()
+            if (songs.isNotEmpty()) {
+                persistSongs(songs, now)
+                songs
+            } else {
+                Log.w(TAG, "JW.org returned no kingdom songs; falling back to cache")
+                cached.toDomain()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to refresh kingdom songs", e)
+            cached.toDomain()
+        }
+    }
+
+    private suspend fun fetchSongsFromApi(): List<KingdomSong> {
+        val response = apiService.getPublicationMedia(pub = PUB_SONGBOOK)
+        val mp3Files = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
+        return mp3Files.mapNotNull { file ->
+            val url = file.file?.url ?: return@mapNotNull null
+            val number = parseTrackNumber(file) ?: return@mapNotNull null
+            val title = file.title?.takeIf { it.isNotBlank() }
+                ?: file.label?.takeIf { it.isNotBlank() }
+                ?: "Kingdom Song $number"
+            KingdomSong(number = number, title = title, url = url)
+        }.sortedBy { it.number }
+    }
+
+    private suspend fun persistSongs(songs: List<KingdomSong>, fetchedAt: Long) {
+        val cachedSongs = songs.map { song ->
+            CachedSong(
+                number = song.number,
+                title = song.title,
+                url = song.url,
+                language = "E",
+                fetchedAt = fetchedAt
+            )
+        }
+        songDao.deleteAll()
+        songDao.insertAll(cachedSongs)
+        Log.d(TAG, "Cached ${songs.size} kingdom songs")
+    }
+
+    private fun parseTrackNumber(file: MediaFile): Int? {
+        file.track?.let { return it }
+        listOfNotNull(file.title, file.label).forEach { text ->
+            val match = SONG_NUMBER_REGEX.find(text)
+            if (match != null) {
+                return match.value.toIntOrNull()
+            }
+        }
+        return null
+    }
+
+    private fun parseBookNumber(file: MediaFile): Int? {
+        file.bookNumber?.let { return it }
+        val text = listOfNotNull(file.label, file.title).joinToString(" ")
+        return BibleBooks.findByName(text)?.number
+    }
+
+    private fun List<CachedSong>.toDomain(): List<KingdomSong> =
+        this.sortedBy { it.number }.map { KingdomSong(number = it.number, title = it.title, url = it.url) }
+
+    /**
+     * Fetch JW Broadcasting Monthly Programs
+     * Returns list of programs sorted by most recent first
+     * Uses 240p MP4 for audio-only playback (smallest file size)
+     */
+    suspend fun getMonthlyPrograms(): List<BroadcastingProgram> {
+        return try {
+            val response = mediatorService.getCategory(
+                language = MEDIATOR_LANGUAGE,
+                category = CATEGORY_MONTHLY_PROGRAMS
+            )
+            response.items().mapNotNull { item ->
+                val url = item.files?.find { it.label == PREFERRED_VIDEO_QUALITY }?.url
+                    ?: item.files?.firstOrNull()?.url
+                    ?: return@mapNotNull null
+                val id = item.guid ?: item.naturalKey ?: return@mapNotNull null
+                val title = item.title ?: "JW Broadcasting"
+                BroadcastingProgram(
+                    id = "jwb-$id",
+                    title = title,
+                    streamUrl = url,
+                    publishedDate = item.firstPublished
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch monthly programs", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Fetch Governing Body Updates
+     * Returns list of updates sorted by most recent first
+     * Uses 240p MP4 for audio-only playback
+     */
+    suspend fun getGoverningBodyUpdates(): List<BroadcastingProgram> {
+        return try {
+            val response = mediatorService.getCategory(
+                language = MEDIATOR_LANGUAGE,
+                category = CATEGORY_GB_UPDATES
+            )
+            response.items().mapNotNull { item ->
+                val url = item.files?.find { it.label == PREFERRED_VIDEO_QUALITY }?.url
+                    ?: item.files?.firstOrNull()?.url
+                    ?: return@mapNotNull null
+                val id = item.guid ?: item.naturalKey ?: return@mapNotNull null
+                val title = item.title ?: "Governing Body Update"
+                BroadcastingProgram(
+                    id = "gb-$id",
+                    title = title,
+                    streamUrl = url,
+                    publishedDate = item.firstPublished
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch GB updates", e)
+            emptyList()
+        }
     }
 }

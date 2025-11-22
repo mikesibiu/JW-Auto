@@ -30,9 +30,9 @@ data class CachedContent(
         const val TYPE_BIBLE_READING = "bible_reading"
         const val TYPE_CONGREGATION_STUDY = "congregation_study"
 
-        // TTL: 7 days for future content, 30 days for past content
-        const val TTL_FUTURE_MILLIS = 7L * 24 * 60 * 60 * 1000  // 7 days
-        const val TTL_PAST_MILLIS = 30L * 24 * 60 * 60 * 1000   // 30 days
+        // TTLs sized to cover pre-fetch horizon (current week + 3 weeks ahead)
+        const val TTL_FUTURE_MILLIS = 35L * 24 * 60 * 60 * 1000  // 5 weeks
+        const val TTL_PAST_MILLIS = 45L * 24 * 60 * 60 * 1000   // ~6.5 weeks
 
         fun cacheKey(contentType: String, weekStart: String): String {
             return "$contentType:$weekStart"
