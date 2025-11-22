@@ -53,3 +53,8 @@ captures/
 
 # Version control
 *.orig
+
+# Signing keystore (keep private)
+*.keystore
+*.jks
+SharePub/*.apk

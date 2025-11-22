@@ -1,0 +1,173 @@
+========================================
+JW LIBRARY AUTO - INSTALLATION GUIDE
+========================================
+
+Version: 1.0.0
+App: JW Library Auto for Android Auto
+
+This app allows you to listen to JW.org content through
+Android Auto while driving. Content includes:
+- Weekly Meeting Content (This Week, Last Week, Next Week)
+- Bible & Songs (Hebrew/Greek Scriptures, Kingdom Songs with vocals)
+- JW Broadcasting (Monthly Programs + Governing Body Updates)
+
+
+========================================
+STEP 1: PREPARE YOUR PHONE
+========================================
+
+1. Open your phone's Settings app
+2. Scroll down and tap "About phone"
+3. Find "Build number" and tap it 7 times quickly
+   - You'll see "You are now a developer!"
+4. Go back to Settings
+5. Open "Developer options" (now visible)
+6. Enable "USB debugging" (optional, for ADB install)
+
+
+========================================
+STEP 2: ALLOW UNKNOWN APPS
+========================================
+
+1. Open Settings > Security (or Privacy)
+2. Find "Install unknown apps" or "Unknown sources"
+3. Enable it for your file manager app (e.g., Files, My Files)
+   - On newer Android: tap your file manager app and toggle
+     "Allow from this source"
+
+
+========================================
+STEP 3: INSTALL THE APK
+========================================
+
+Option A - Transfer via USB/Cloud:
+1. Copy "JW-Library-Auto-v1.0.0.apk" to your phone
+2. Use your file manager to locate the APK
+3. Tap the APK file
+4. Tap "Install" when prompted
+5. If warned about unknown apps, tap "Settings" and allow
+
+Option B - Download link (if shared online):
+1. Open the download link on your phone
+2. Download the APK
+3. Open it from Downloads or notifications
+4. Tap "Install"
+
+
+========================================
+STEP 4: ENABLE IN ANDROID AUTO
+========================================
+
+1. Make sure you have "Android Auto" app installed
+   (Download from Play Store if needed)
+
+2. Open Android Auto app on your phone
+
+3. Tap the menu icon (hamburger or gear icon)
+
+4. Go to Settings > Customize launcher
+   OR Settings > General > App launcher
+
+5. Find "JW Library Auto" and enable it
+   (It might be under "Add media source" or similar)
+
+6. If you don't see it:
+   - Go to Android Auto Settings
+   - Scroll to "Developer settings" (tap version 10 times if hidden)
+   - Enable "Unknown sources"
+
+
+========================================
+STEP 5: USE IN YOUR CAR
+========================================
+
+1. Connect your phone to your car via USB or Bluetooth
+
+2. Android Auto should launch on your car's display
+
+3. Tap the music/media icon on Android Auto
+
+4. Look for "JW Library Auto" in the list of media apps
+
+5. Tap it to browse content:
+   - Weekly Meetings
+   - Bible & Songs
+   - JW Broadcasting
+
+6. Select any item to start playback
+
+7. Use car controls for play/pause, skip, etc.
+
+
+========================================
+TROUBLESHOOTING
+========================================
+
+App doesn't appear in Android Auto:
+- Make sure you enabled it in Android Auto settings
+- Try enabling "Unknown sources" in Android Auto developer settings
+- Restart your phone and try again
+
+No content showing:
+- Make sure you have internet connection
+- The app fetches content from jw.org
+
+Playback issues:
+- Check your internet connection
+- Some content may take a moment to buffer
+
+Can't install APK:
+- Make sure you allowed unknown apps (Step 2)
+- Try downloading again if file is corrupted
+- Check you have enough storage space
+
+
+========================================
+CONTENT OVERVIEW
+========================================
+
+WEEKLY MEETINGS:
+- This Week's Meeting Content
+  - Bible Reading
+  - Watchtower Study
+  - Congregation Bible Study
+  - Meeting Workbook
+- Last Week's Content
+- Next Week's Content
+
+BIBLE & SONGS:
+- Hebrew Scriptures (39 books)
+- Greek Scriptures (27 books)
+- Kingdom Songs (with vocals)
+
+JW BROADCASTING:
+- Monthly Programs (hosted by Governing Body members)
+- Governing Body Updates
+- All sorted by newest first
+
+
+========================================
+VERSION INFO
+========================================
+
+Release: JW-Library-Auto-v1.0.0.apk (8.2 MB)
+Debug:   JW-Library-Auto-v1.0.0-debug.apk (11 MB)
+
+Use the Release version for normal use.
+Debug version is for developers/testing only.
+
+Requires: Android 7.0+ and Android Auto
+
+
+========================================
+SUPPORT
+========================================
+
+This is a personal project, not affiliated with
+Watch Tower Bible and Tract Society.
+
+For issues or questions, contact the person
+who shared this app with you.
+
+
+========================================
