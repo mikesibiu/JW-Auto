@@ -21,8 +21,11 @@ import org.jw.library.auto.data.model.BibleDrama
 import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
 import org.jw.library.auto.data.model.api.MediaFile
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.time.temporal.TemporalAdjusters
 import kotlin.jvm.Volatile
 
 /**
@@ -72,87 +75,107 @@ class JWOrgRepository(
     }
 
     /**
-     * Fetch meeting workbook audio URL for a specific week
-     * Cache-first: Check cache → Try API → Fall back to hard-coded URL
+     * Fetch meeting workbook audio URL for a specific week.
+     * Cache → API (with correct issue + track) → hard-coded fallback.
+     *
+     * The workbook is a bimonthly publication (odd months: Jan, Mar, May …).
+     * Each week within an issue is a separate track, so we calculate the
+     * issue year-month and the 1-based track number from the week date.
      */
     suspend fun getMeetingWorkbookUrl(weekStart: LocalDate): String {
         val weekStartStr = weekStart.toString()
         val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WORKBOOK, weekStartStr)
 
-        // 1. Check cache first
         val cached = contentDao.getByKey(cacheKey)
         if (cached != null && !cached.isExpired()) {
             Log.d(TAG, "Cache hit for workbook $weekStart")
             return cached.url ?: fallbackWorkbookUrl(weekStart)
         }
 
-        // 2. Try API
         return try {
-            val yearMonth = yearMonthFormat.format(weekStart)
+            val issueYearMonth = workbookIssueYearMonth(weekStart)
+            val track = workbookTrack(weekStart)
+            Log.d(TAG, "Fetching workbook $weekStart — issue=$issueYearMonth track=$track")
             val response = apiService.getPublicationMedia(
                 pub = PUB_WORKBOOK,
-                issue = yearMonth
+                issue = issueYearMonth,
+                track = track
             )
-
             val url = response.files?.values?.firstOrNull()
                 ?.mp3Files?.firstOrNull()
                 ?.file?.url
                 ?: fallbackWorkbookUrl(weekStart)
-
-            // Cache the result
             cacheUrl(cacheKey, CachedContent.TYPE_WORKBOOK, weekStartStr, url, weekStart)
-
             url
         } catch (e: Exception) {
             Log.w(TAG, "API fetch failed for workbook $weekStart, using fallback", e)
-            // If we have stale cache, use it
-            if (cached != null) {
-                Log.d(TAG, "Using stale cache for workbook $weekStart")
-                return cached.url ?: fallbackWorkbookUrl(weekStart)
-            }
+            if (cached != null) return cached.url ?: fallbackWorkbookUrl(weekStart)
             fallbackWorkbookUrl(weekStart)
         }
     }
 
     /**
-     * Fetch Watchtower study audio URL for a specific week
-     * Cache-first: Check cache → Try API → Fall back to hard-coded URL
+     * The workbook is published on odd months and covers ~2 months each issue.
+     * Round the week's month down to the nearest odd month to get the issue code.
+     */
+    private fun workbookIssueYearMonth(weekStart: LocalDate): String {
+        val month = weekStart.monthValue
+        val issueMonth = if (month % 2 == 1) month else month - 1
+        return "${weekStart.year}${issueMonth.toString().padStart(2, '0')}"
+    }
+
+    /**
+     * The track number is the 1-based index of the week within its issue,
+     * counting from the first Monday of the issue month.
+     */
+    private fun workbookTrack(weekStart: LocalDate): Int {
+        val month = weekStart.monthValue
+        val issueMonth = if (month % 2 == 1) month else month - 1
+        val issueFirstDay = LocalDate.of(weekStart.year, issueMonth, 1)
+        val firstMonday = issueFirstDay.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY))
+        return (ChronoUnit.WEEKS.between(firstMonday, weekStart) + 1).toInt()
+    }
+
+    /**
+     * Fetch Watchtower study audio URL for a specific week.
+     * Cache → override map (known-good hand-curated URLs) → API → fallback.
+     *
+     * The study Watchtower is published ~2 months before the meeting date, so
+     * querying the API by the meeting-week's month returns the wrong issue.
+     * The override map (maintained in JWOrgContentUrls) contains the exact
+     * correct URLs for each week and is always preferred over the API.
      */
     suspend fun getWatchtowerUrl(weekStart: LocalDate): String {
         val weekStartStr = weekStart.toString()
         val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WATCHTOWER, weekStartStr)
 
-        // 1. Check cache first
         val cached = contentDao.getByKey(cacheKey)
         if (cached != null && !cached.isExpired()) {
             Log.d(TAG, "Cache hit for watchtower $weekStart")
             return cached.url ?: fallbackWatchtowerUrl(weekStart)
         }
 
-        // 2. Try API
+        // Use the override map first — it has the correct publication issue for each week.
+        val overrideUrl = JWOrgContentUrls.watchtowerOverrideUrl(weekStart)
+        if (overrideUrl != null) {
+            Log.d(TAG, "Using Watchtower override for $weekStart")
+            cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, overrideUrl, weekStart)
+            return overrideUrl
+        }
+
+        // No override — fall back to API for weeks beyond the override map.
         return try {
             val yearMonth = yearMonthFormat.format(weekStart)
-            val response = apiService.getPublicationMedia(
-                pub = PUB_WATCHTOWER,
-                issue = yearMonth
-            )
-
+            val response = apiService.getPublicationMedia(pub = PUB_WATCHTOWER, issue = yearMonth)
             val url = response.files?.values?.firstOrNull()
                 ?.mp3Files?.firstOrNull()
                 ?.file?.url
                 ?: fallbackWatchtowerUrl(weekStart)
-
-            // Cache the result
             cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, url, weekStart)
-
             url
         } catch (e: Exception) {
             Log.w(TAG, "API fetch failed for watchtower $weekStart, using fallback", e)
-            // If we have stale cache, use it
-            if (cached != null) {
-                Log.d(TAG, "Using stale cache for watchtower $weekStart")
-                return cached.url ?: fallbackWatchtowerUrl(weekStart)
-            }
+            if (cached != null) return cached.url ?: fallbackWatchtowerUrl(weekStart)
             fallbackWatchtowerUrl(weekStart)
         }
     }

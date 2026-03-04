@@ -25,6 +25,10 @@ object JWOrgContentUrls {
         return WATCHTOWER_FALLBACK
     }
 
+    /** Returns the override URL if one is present for this week, null otherwise. */
+    fun watchtowerOverrideUrl(weekStart: LocalDate): String? =
+        WATCHTOWER_OVERRIDES[weekStart.toString()]
+
     fun bibleReadingUrls(weekStart: LocalDate): List<String> {
         val key = weekStart.toString()
         return MEETING_SECTIONS[key]?.bibleReading ?: emptyList()
