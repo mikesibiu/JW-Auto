@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.jw.library.auto.data.api.ApiClient
 import org.jw.library.auto.data.api.JWOrgContentUrls
 import org.jw.library.auto.data.api.MediatorApiClient
@@ -14,6 +16,8 @@ import org.jw.library.auto.data.bible.BibleBooks
 import org.jw.library.auto.data.cache.CachedContent
 import org.jw.library.auto.data.cache.CachedSong
 import org.jw.library.auto.data.cache.ContentDatabase
+import org.jw.library.auto.data.meeting.MeetingSectionsProvider
+import org.jw.library.auto.data.model.BibleDrama
 import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
 import org.jw.library.auto.data.model.api.MediaFile
@@ -35,12 +39,15 @@ data class BroadcastingProgram(
 class JWOrgRepository(
     private val context: Context,
     private val apiService: org.jw.library.auto.data.api.JWOrgApiService = ApiClient.jwOrgApi,
-    private val mediatorService: MediatorApiService = MediatorApiClient.service
+    private val mediatorService: MediatorApiService = MediatorApiClient.service,
+    private val dramaPageUrl: String = "https://www.jw.org/en/library/videos/#en/categories/VODDramatizations",
+    private val dramaHttpClient: OkHttpClient = OkHttpClient()
 ) {
     private val yearMonthFormat = DateTimeFormatter.ofPattern("yyyyMM")
     private val gson = Gson()
     private val contentDao by lazy { ContentDatabase.getDatabase(context).contentDao() }
     private val songDao by lazy { ContentDatabase.getDatabase(context).songDao() }
+    private val meetingSectionsProvider by lazy { MeetingSectionsProvider(context) }
 
     data class BibleBookAudio(val intro: String?, val chapters: List<String>)
 
@@ -60,6 +67,7 @@ class JWOrgRepository(
         private const val MEDIATOR_LANGUAGE = "E"
         private const val CATEGORY_MONTHLY_PROGRAMS = "StudioMonthlyPrograms"
         private const val CATEGORY_GB_UPDATES = "StudioNewsReports"
+        private const val CATEGORY_DRAMAS = "VOXDramas"
         private const val PREFERRED_VIDEO_QUALITY = "240p"
     }
 
@@ -268,10 +276,15 @@ class JWOrgRepository(
     }
 
     private fun fallbackBibleReadingUrls(weekStart: LocalDate): List<String> {
+        // JSON-based provider has more up-to-date week data than the inline map
+        val fromJson = meetingSectionsProvider.bibleReadingUrls(weekStart)
+        if (fromJson.isNotEmpty()) return fromJson
         return JWOrgContentUrls.bibleReadingUrls(weekStart)
     }
 
     private fun fallbackCongregationStudyUrls(weekStart: LocalDate): List<String> {
+        val fromJson = meetingSectionsProvider.congregationStudyUrls(weekStart)
+        if (fromJson.isNotEmpty()) return fromJson
         return JWOrgContentUrls.congregationStudyUrls(weekStart)
     }
 
@@ -391,6 +404,69 @@ class JWOrgRepository(
             }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch monthly programs", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Fetch Bible Dramas from Mediator API (VOXDramas category) with HTML fallback.
+     * Mediator is preferred; if it returns nothing the drama page is scraped for
+     * __NEXT_DATA__ JSON.
+     */
+    suspend fun getBibleDramas(forceRefresh: Boolean = false): List<BibleDrama> {
+        val mediatorDramas = try {
+            val response = mediatorService.getCategory(MEDIATOR_LANGUAGE, CATEGORY_DRAMAS)
+            response.items().mapNotNull { item ->
+                val url = item.files?.firstOrNull()?.url ?: return@mapNotNull null
+                val id = item.guid ?: item.naturalKey ?: return@mapNotNull null
+                BibleDrama(
+                    id = "broadcast-$id",
+                    title = item.title ?: "Drama",
+                    streamUrl = url,
+                    durationSeconds = item.durationSeconds?.toInt()
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Mediator drama fetch failed", e)
+            emptyList()
+        }
+        if (mediatorDramas.isNotEmpty()) return mediatorDramas
+
+        return try {
+            val request = Request.Builder().url(dramaPageUrl).build()
+            val html = dramaHttpClient.newCall(request).execute().body?.string() ?: return emptyList()
+            parseNextDataDramas(html)
+        } catch (e: Exception) {
+            Log.w(TAG, "HTML drama fetch failed", e)
+            emptyList()
+        }
+    }
+
+    private fun parseNextDataDramas(html: String): List<BibleDrama> {
+        val startMarker = """<script id="__NEXT_DATA__" type="application/json">"""
+        val start = html.indexOf(startMarker).let { if (it < 0) return emptyList() else it + startMarker.length }
+        val end = html.indexOf("</script>", start).let { if (it < 0) return emptyList() else it }
+        return try {
+            val root = gson.fromJson(html.substring(start, end), com.google.gson.JsonObject::class.java)
+            val files = root
+                ?.getAsJsonObject("props")
+                ?.getAsJsonObject("pageProps")
+                ?.getAsJsonObject("listData")
+                ?.getAsJsonArray("files") ?: return emptyList()
+            files.mapNotNull { el ->
+                val obj = el.asJsonObject
+                val title = obj.get("title")?.asString ?: return@mapNotNull null
+                val url = obj.get("fileUrl")?.asString ?: return@mapNotNull null
+                BibleDrama(
+                    id = "drama-${url.hashCode()}",
+                    title = title,
+                    streamUrl = url,
+                    description = obj.get("description")?.asString,
+                    durationSeconds = obj.get("duration")?.asInt
+                )
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse __NEXT_DATA__ dramas", e)
             emptyList()
         }
     }

@@ -3,20 +3,18 @@ package org.jw.library.auto.data
 import android.content.Context
 import androidx.annotation.StringRes
 import org.jw.library.auto.R
-import org.jw.library.auto.data.api.JWOrgContentUrls
-import org.jw.library.auto.data.bible.BibleBooks
-import org.jw.library.auto.data.bible.BibleBooks.Testament
-import org.jw.library.auto.data.cache.CachedContentReader
 import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
+import org.jw.library.auto.data.bible.BibleBooks
+import org.jw.library.auto.data.bible.BibleBooks.Testament
 import org.jw.library.auto.util.WeekCalculator
 
 class ContentRepository(
     private val context: Context,
     private val weekCalculator: WeekCalculator = WeekCalculator()
 ) {
-    private val cacheReader = CachedContentReader(context)
     private val jwOrgRepository = JWOrgRepository(context)
+
     companion object {
         const val ROOT_ID = "root"
         private const val CATEGORY_WEEKLY_MEETINGS = "weekly_meetings"
@@ -25,6 +23,8 @@ class ContentRepository(
         private const val CATEGORY_NEXT_WEEK = "next_week"
         private const val CATEGORY_BIBLE_AND_SONGS = "bible_and_songs"
         private const val CATEGORY_SONGS = "songs"
+        private const val SONGS_GROUP_PREFIX = "songs_group_"
+        private const val SONG_GROUP_SIZE = 20
         private const val CATEGORY_HEBREW_SCRIPTURES = "hebrew_scriptures"
         private const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
         private const val CATEGORY_BROADCASTING = "broadcasting"
@@ -32,32 +32,37 @@ class ContentRepository(
         private const val SAMPLE_AUDIO = "https://cfp2.jw-cdn.org/a/7f4ac57/1/o/lfb_E_033.mp3"
     }
 
-    suspend fun getChildren(parentId: String): List<MediaContent> = when (parentId) {
-        ROOT_ID -> listOf(
+    suspend fun getChildren(parentId: String): List<MediaContent> = when {
+        parentId == ROOT_ID -> listOf(
             category(CATEGORY_WEEKLY_MEETINGS, R.string.category_weekly_meetings),
             category(CATEGORY_BIBLE_AND_SONGS, R.string.category_bible_and_songs),
             category(CATEGORY_BROADCASTING, R.string.category_broadcasting),
         )
 
-        CATEGORY_WEEKLY_MEETINGS -> listOf(
+        parentId == CATEGORY_WEEKLY_MEETINGS -> listOf(
             category(CATEGORY_THIS_WEEK, R.string.category_this_week),
             category(CATEGORY_LAST_WEEK, R.string.category_last_week),
             category(CATEGORY_NEXT_WEEK, R.string.category_next_week),
         )
-        CATEGORY_THIS_WEEK -> buildWeeklyContent("this", 0)
-        CATEGORY_LAST_WEEK -> buildWeeklyContent("last", -1)
-        CATEGORY_NEXT_WEEK -> buildWeeklyContent("next", 1)
+        parentId == CATEGORY_THIS_WEEK -> buildWeeklyContent("this", 0)
+        parentId == CATEGORY_LAST_WEEK -> buildWeeklyContent("last", -1)
+        parentId == CATEGORY_NEXT_WEEK -> buildWeeklyContent("next", 1)
 
-        CATEGORY_BIBLE_AND_SONGS -> listOf(
+        parentId == CATEGORY_BIBLE_AND_SONGS -> listOf(
             category(CATEGORY_HEBREW_SCRIPTURES, R.string.category_hebrew_scriptures),
             category(CATEGORY_GREEK_SCRIPTURES, R.string.category_greek_scriptures),
             category(CATEGORY_SONGS, R.string.category_songs),
         )
-        CATEGORY_HEBREW_SCRIPTURES -> bibleBooks(Testament.HEBREW)
-        CATEGORY_GREEK_SCRIPTURES -> bibleBooks(Testament.GREEK)
-        CATEGORY_SONGS -> loadSongs()
+        parentId == CATEGORY_HEBREW_SCRIPTURES -> bibleBooks(Testament.HEBREW)
+        parentId == CATEGORY_GREEK_SCRIPTURES -> bibleBooks(Testament.GREEK)
+        parentId == CATEGORY_SONGS -> loadSongGroups()
 
-        CATEGORY_BROADCASTING -> loadBroadcastingContent()
+        parentId.startsWith(SONGS_GROUP_PREFIX) -> {
+            val idx = parentId.removePrefix(SONGS_GROUP_PREFIX).toIntOrNull()
+            if (idx != null) loadSongGroup(idx) else emptyList()
+        }
+
+        parentId == CATEGORY_BROADCASTING -> loadBroadcastingContent()
 
         else -> emptyList()
     }
@@ -66,15 +71,12 @@ class ContentRepository(
         val weekInfo = weekCalculator.weekForOffset(offsetWeeks)
         val labelPrefix = "${weekInfo.label} |"
 
-        // Try cache first, fall back to hard-coded URLs
-        val workbookUrl = cacheReader.getWorkbookUrl(weekInfo.weekStart)
-            ?: JWOrgContentUrls.meetingWorkbookUrl(weekInfo.weekStart)
-        val watchtowerUrl = cacheReader.getWatchtowerUrl(weekInfo.weekStart)
-            ?: JWOrgContentUrls.watchtowerStudyUrl(weekInfo.weekStart)
-        val biblePlaylist = cacheReader.getBibleReadingUrls(weekInfo.weekStart)
-            ?: JWOrgContentUrls.bibleReadingUrls(weekInfo.weekStart)
-        val congregationPlaylist = cacheReader.getCongregationStudyUrls(weekInfo.weekStart)
-            ?: JWOrgContentUrls.congregationStudyUrls(weekInfo.weekStart)
+        // JWOrgRepository handles the full cache → API → JSON fallback → hard-coded chain
+        val workbookUrl = jwOrgRepository.getMeetingWorkbookUrl(weekInfo.weekStart)
+        val watchtowerUrl = jwOrgRepository.getWatchtowerUrl(weekInfo.weekStart)
+        val biblePlaylist = jwOrgRepository.getBibleReadingUrls(weekInfo.weekStart)
+        val congregationPlaylist = jwOrgRepository.getCongregationStudyUrls(weekInfo.weekStart)
+
         return listOf(
             MediaContent(
                 id = "$prefix-reading",
@@ -101,17 +103,30 @@ class ContentRepository(
         )
     }
 
-    private suspend fun loadSongs(): List<MediaContent> {
+    private suspend fun loadSongGroups(): List<MediaContent> {
         val songs = jwOrgRepository.getKingdomSongs()
-        if (songs.isEmpty()) {
-            return fallbackSongs()
+        if (songs.isEmpty()) return fallbackSongs()
+        return songs.chunked(SONG_GROUP_SIZE).mapIndexed { index, group ->
+            val first = group.first().number.toString().padStart(3, '0')
+            val last = group.last().number.toString().padStart(3, '0')
+            MediaContent(
+                id = "$SONGS_GROUP_PREFIX$index",
+                title = context.getString(R.string.songs_group_label, first, last),
+                isBrowsable = true,
+            )
         }
-        return songs.map { it.toMediaContent() }
+    }
+
+    private suspend fun loadSongGroup(index: Int): List<MediaContent> {
+        val songs = jwOrgRepository.getKingdomSongs()
+        return songs.chunked(SONG_GROUP_SIZE).getOrNull(index)
+            ?.map { it.toMediaContent() }
+            ?: emptyList()
     }
 
     private fun KingdomSong.toMediaContent(): MediaContent {
         val displayNumber = number.toString().padStart(3, '0')
-        val titleText = context.getString(R.string.category_songs) + ": $displayNumber - ${title}"
+        val titleText = "$displayNumber - $title"
         return MediaContent(
             id = "song-$number",
             title = titleText,
@@ -175,5 +190,4 @@ class ContentRepository(
         title = context.getString(title),
         isBrowsable = true,
     )
-
 }
