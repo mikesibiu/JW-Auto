@@ -33,22 +33,58 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         super.onCreate()
         contentRepository = ContentRepository(this)
         playbackPositionRepository = PlaybackPositionRepository(this)
-        playbackManager = PlaybackManager(this) { state, position ->
-            when (state) {
-                PlaybackStateCompat.STATE_PLAYING ->
-                    startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
-                PlaybackStateCompat.STATE_PAUSED ->
-                    stopForegroundCompat(removeNotification = false)
-                PlaybackStateCompat.STATE_STOPPED ->
-                    stopForegroundCompat(removeNotification = true)
-            }
-            val currentId = playbackManager.mediaSession.controller.metadata?.description?.mediaId
-            if (currentId != null) {
-                serviceScope.launch(Dispatchers.IO) {
-                    playbackPositionRepository.save(currentId, position)
+        playbackManager = PlaybackManager(
+            context = this,
+            onPlaybackStateChange = { state, position ->
+                when (state) {
+                    PlaybackStateCompat.STATE_PLAYING ->
+                        startForeground(NOTIFICATION_ID, playbackManager.buildNotification())
+                    PlaybackStateCompat.STATE_PAUSED ->
+                        stopForegroundCompat(removeNotification = false)
+                    PlaybackStateCompat.STATE_STOPPED ->
+                        stopForegroundCompat(removeNotification = true)
+                }
+                val currentId = playbackManager.mediaSession.controller.metadata?.description?.mediaId
+                if (currentId != null) {
+                    serviceScope.launch(Dispatchers.IO) {
+                        playbackPositionRepository.save(currentId, position)
+                    }
+                }
+            },
+            onPlayFromMediaId = { mediaId, extras ->
+                // Re-fetch fresh URLs from contentRepository rather than trusting the
+                // potentially stale URL cached by the Android Auto Gearhead app.
+                val parentId = when {
+                    mediaId.startsWith("this-") -> ContentRepository.CATEGORY_THIS_WEEK
+                    mediaId.startsWith("last-") -> ContentRepository.CATEGORY_LAST_WEEK
+                    mediaId.startsWith("next-") -> ContentRepository.CATEGORY_NEXT_WEEK
+                    else -> null
+                }
+                serviceScope.launch {
+                    val content = if (parentId != null) {
+                        withContext(Dispatchers.IO) { contentRepository.getChildren(parentId) }
+                            .find { it.id == mediaId }
+                    } else null
+
+                    if (content != null) {
+                        val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
+                        playbackManager.play(content, lastPosition)
+                    } else {
+                        // Not a weekly content ID — fall back to extras URL
+                        val title = extras?.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE) ?: mediaId
+                        val playlist = extras?.getStringArrayList(PlaybackManager.KEY_PLAYLIST)
+                        val uri = extras?.getString(PlaybackManager.KEY_STREAM_URI)
+                        val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
+                        when {
+                            !playlist.isNullOrEmpty() ->
+                                playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, playlistUrls = playlist), lastPosition)
+                            uri != null ->
+                                playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, streamUrl = uri), lastPosition)
+                        }
+                    }
                 }
             }
-        }
+        )
         sessionToken = playbackManager.mediaSession.sessionToken
 
         // Schedule background content sync

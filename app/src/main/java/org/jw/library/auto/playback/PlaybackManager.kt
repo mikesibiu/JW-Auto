@@ -23,7 +23,8 @@ import org.jw.library.auto.data.model.MediaContent
 
 class PlaybackManager(
     private val context: Context,
-    private val onPlaybackStateChange: (Int, Long) -> Unit
+    private val onPlaybackStateChange: (Int, Long) -> Unit,
+    private val onPlayFromMediaId: ((mediaId: String, extras: android.os.Bundle?) -> Unit)? = null
 ) {
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -111,6 +112,13 @@ class PlaybackManager(
         setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlayFromMediaId(mediaId: String?, extras: android.os.Bundle?) {
                 mediaId?.let { id ->
+                    // If the service provides a handler, delegate to it so it can re-fetch
+                    // fresh URLs from the content repository rather than using potentially
+                    // stale URLs cached by the Android Auto Gearhead app.
+                    if (onPlayFromMediaId != null) {
+                        onPlayFromMediaId.invoke(id, extras)
+                        return
+                    }
                     val title = extras?.getString(MediaMetadataCompat.METADATA_KEY_TITLE) ?: id
                     val playlist = extras?.getStringArrayList(KEY_PLAYLIST)
                     val lastPosition = extras?.getLong(KEY_LAST_POSITION, 0L) ?: 0L

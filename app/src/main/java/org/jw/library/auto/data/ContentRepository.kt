@@ -18,9 +18,9 @@ class ContentRepository(
     companion object {
         const val ROOT_ID = "root"
         private const val CATEGORY_WEEKLY_MEETINGS = "weekly_meetings"
-        private const val CATEGORY_THIS_WEEK = "this_week"
-        private const val CATEGORY_LAST_WEEK = "last_week"
-        private const val CATEGORY_NEXT_WEEK = "next_week"
+        const val CATEGORY_THIS_WEEK = "this_week"
+        const val CATEGORY_LAST_WEEK = "last_week"
+        const val CATEGORY_NEXT_WEEK = "next_week"
         private const val CATEGORY_BIBLE_AND_SONGS = "bible_and_songs"
         private const val CATEGORY_SONGS = "songs"
         private const val SONGS_GROUP_PREFIX = "songs_group_"
