@@ -215,57 +215,60 @@ object JWOrgContentUrls {
             ),
             congregationStudy = listOf(
                 "https://cfp2.jw-cdn.org/a/e109b19/1/o/lfb_E_054.mp3",
+                "https://cfp2.jw-cdn.org/a/a1b212/1/o/lfb_E_055.mp3",
             )
         ),
         "2026-01-26" to MeetingSections(
             bibleReading = listOf(
-                "https://cfp2.jw-cdn.org/a/9bd174/1/o/bi12_23_Isa_E_24.mp3",
-                "https://cfp2.jw-cdn.org/a/5c0ff1c/1/o/bi12_23_Isa_E_25.mp3",
-            ),
-            congregationStudy = listOf(
-                "https://cfp2.jw-cdn.org/a/a1b212/1/o/lfb_E_055.mp3",
-            )
-        ),
-        "2026-02-02" to MeetingSections(
-            bibleReading = listOf(
-                "https://cfp2.jw-cdn.org/a/e18340/1/o/bi12_23_Isa_E_26.mp3",
-                "https://cfp2.jw-cdn.org/a/96003f/1/o/bi12_23_Isa_E_27.mp3",
                 "https://cfp2.jw-cdn.org/a/2d1b1fc/1/o/bi12_23_Isa_E_28.mp3",
+                "https://cfp2.jw-cdn.org/a/97a32a9/1/o/bi12_23_Isa_E_29.mp3",
             ),
             congregationStudy = listOf(
                 "https://cfp2.jw-cdn.org/a/8d3330/1/o/lfb_E_056.mp3",
                 "https://cfp2.jw-cdn.org/a/c786616/1/o/lfb_E_057.mp3",
             )
         ),
-        "2026-02-09" to MeetingSections(
+        "2026-02-02" to MeetingSections(
             bibleReading = listOf(
-                "https://cfp2.jw-cdn.org/a/c4f37e/1/o/bi12_23_Isa_E_29.mp3",
-                "https://cfp2.jw-cdn.org/a/e2a8c7/1/o/bi12_23_Isa_E_30.mp3",
+                "https://cfp2.jw-cdn.org/a/6c5299/1/o/bi12_23_Isa_E_30.mp3",
+                "https://cfp2.jw-cdn.org/a/50df2f3/1/o/bi12_23_Isa_E_31.mp3",
+                "https://cfp2.jw-cdn.org/a/3f6cdc/1/o/bi12_23_Isa_E_32.mp3",
             ),
             congregationStudy = listOf(
-                "https://cfp2.jw-cdn.org/a/7fd902/1/o/lfb_E_058.mp3",
-                "https://cfp2.jw-cdn.org/a/4c2f33/1/o/lfb_E_059.mp3",
+                "https://cfp2.jw-cdn.org/a/3695d6/1/o/lfb_E_058.mp3",
+                "https://cfp2.jw-cdn.org/a/b81606/1/o/lfb_E_059.mp3",
+            )
+        ),
+        "2026-02-09" to MeetingSections(
+            bibleReading = listOf(
+                "https://cfp2.jw-cdn.org/a/cbf3b3/1/o/bi12_23_Isa_E_33.mp3",
+                "https://cfp2.jw-cdn.org/a/b86778d/1/o/bi12_23_Isa_E_34.mp3",
+                "https://cfp2.jw-cdn.org/a/824152/1/o/bi12_23_Isa_E_35.mp3",
+            ),
+            congregationStudy = listOf(
+                "https://cfp2.jw-cdn.org/a/77a1f9/1/o/lfb_E_060.mp3",
+                "https://cfp2.jw-cdn.org/a/368cac/1/o/lfb_E_061.mp3",
             )
         ),
         "2026-02-16" to MeetingSections(
             bibleReading = listOf(
-                "https://cfp2.jw-cdn.org/a/2fd33a/1/o/bi12_23_Isa_E_31.mp3",
-                "https://cfp2.jw-cdn.org/a/9f5d01/1/o/bi12_23_Isa_E_32.mp3",
-                "https://cfp2.jw-cdn.org/a/7fa8dc/1/o/bi12_23_Isa_E_33.mp3",
+                "https://cfp2.jw-cdn.org/a/7253b2/1/o/bi12_23_Isa_E_36.mp3",
+                "https://cfp2.jw-cdn.org/a/33a78f/1/o/bi12_23_Isa_E_37.mp3",
             ),
             congregationStudy = listOf(
-                "https://cfp2.jw-cdn.org/a/416c29/1/o/lfb_E_060.mp3",
-                "https://cfp2.jw-cdn.org/a/82c8ab/1/o/lfb_E_061.mp3",
+                "https://cfp2.jw-cdn.org/a/4978c46/1/o/lfb_E_062.mp3",
+                "https://cfp2.jw-cdn.org/a/7b20745/1/o/lfb_E_063.mp3",
             )
         ),
         "2026-02-23" to MeetingSections(
             bibleReading = listOf(
-                "https://cfp2.jw-cdn.org/a/4baacf/1/o/bi12_23_Isa_E_34.mp3",
-                "https://cfp2.jw-cdn.org/a/ca7e1e/1/o/bi12_23_Isa_E_35.mp3",
+                "https://cfp2.jw-cdn.org/a/c549e11/1/o/bi12_23_Isa_E_38.mp3",
+                "https://cfp2.jw-cdn.org/a/f0bbfd/1/o/bi12_23_Isa_E_39.mp3",
+                "https://cfp2.jw-cdn.org/a/748fcb/1/o/bi12_23_Isa_E_40.mp3",
             ),
             congregationStudy = listOf(
-                "https://cfp2.jw-cdn.org/a/14cb06c/1/o/lfb_E_062.mp3",
-                "https://cfp2.jw-cdn.org/a/e3530e/1/o/lfb_E_063.mp3",
+                "https://cfp2.jw-cdn.org/a/f9e391c/1/o/lfb_E_064.mp3",
+                "https://cfp2.jw-cdn.org/a/8e53f1/1/o/lfb_E_065.mp3",
             )
         ),
     )

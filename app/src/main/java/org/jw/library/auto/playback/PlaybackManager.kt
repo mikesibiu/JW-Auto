@@ -173,15 +173,6 @@ class PlaybackManager(
         isActive = true
     }
 
-    init {
-        player.addListener(object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                Log.e(TAG, "Playback error", error)
-                updatePlaybackState(PlaybackStateCompat.STATE_ERROR)
-            }
-        })
-    }
-
     fun release() {
         mediaSession.release()
         player.release()
@@ -306,7 +297,8 @@ class PlaybackManager(
                     PlaybackStateCompat.ACTION_STOP or
                     PlaybackStateCompat.ACTION_FAST_FORWARD or
                     PlaybackStateCompat.ACTION_REWIND or
-                    PlaybackStateCompat.ACTION_SEEK_TO
+                    PlaybackStateCompat.ACTION_SEEK_TO or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID
             )
             .setState(state, position, 1.0f)
             .addCustomAction(skipBackCustomAction)
