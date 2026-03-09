@@ -87,10 +87,9 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         )
         sessionToken = playbackManager.mediaSession.sessionToken
 
-        // Clear stale cache if the APK version changed (data-fix releases)
-        serviceScope.launch(Dispatchers.IO) {
-            contentRepository.clearCacheIfVersionChanged()
-        }
+        // Clear stale cache synchronously if APK version changed — must run before
+        // any coroutine or Gearhead auto-resume can read stale cached URLs.
+        contentRepository.clearCacheIfVersionChanged()
 
         // Schedule background content sync
         ContentSyncScheduler.schedulePeriodicSync(this)
