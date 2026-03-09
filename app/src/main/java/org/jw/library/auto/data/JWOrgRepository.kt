@@ -308,16 +308,16 @@ class JWOrgRepository(
 
     /**
      * Clears the content cache if the APK version code has changed since the last run.
-     * Called synchronously from Service.onCreate() so the cache is clean before any
-     * content request can read stale data (avoids a race with Gearhead auto-resume).
+     * Must be called via runBlocking(Dispatchers.IO) from Service.onCreate() so the cache
+     * is guaranteed clean before any content request executes.
      */
-    fun clearCacheIfVersionChanged() {
+    suspend fun clearCacheIfVersionChanged() {
         val prefs = context.getSharedPreferences("jw_app_state", MODE_PRIVATE)
         val stored = prefs.getInt("version_code", -1)
         val current = BuildConfig.VERSION_CODE
         if (stored != current) {
             Log.i(TAG, "Version changed ($stored → $current), clearing content cache")
-            contentDao.deleteAllSync()
+            contentDao.deleteAll()
             prefs.edit().putInt("version_code", current).apply()
         }
     }

@@ -32,7 +32,7 @@ class ContentRepository(
         private const val SAMPLE_AUDIO = "https://cfp2.jw-cdn.org/a/7f4ac57/1/o/lfb_E_033.mp3"
     }
 
-    fun clearCacheIfVersionChanged() = jwOrgRepository.clearCacheIfVersionChanged()
+    suspend fun clearCacheIfVersionChanged() = jwOrgRepository.clearCacheIfVersionChanged()
 
     suspend fun getChildren(parentId: String): List<MediaContent> = when {
         parentId == ROOT_ID -> listOf(

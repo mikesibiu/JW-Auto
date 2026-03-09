@@ -87,9 +87,11 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         )
         sessionToken = playbackManager.mediaSession.sessionToken
 
-        // Clear stale cache synchronously if APK version changed — must run before
-        // any coroutine or Gearhead auto-resume can read stale cached URLs.
-        contentRepository.clearCacheIfVersionChanged()
+        // Clear stale cache before any coroutine can read stale data.
+        // runBlocking(IO) blocks onCreate() until complete; Room executes on IO thread (allowed).
+        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            contentRepository.clearCacheIfVersionChanged()
+        }
 
         // Schedule background content sync
         ContentSyncScheduler.schedulePeriodicSync(this)
