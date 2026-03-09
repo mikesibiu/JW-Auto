@@ -29,16 +29,4 @@ class JWOrgContentUrlsTest {
         )
     }
 
-    @Test
-    fun `bible reading playlist exposes sequential chapters`() {
-        val playlist = JWOrgContentUrls.bibleReadingUrls(LocalDate.of(2025, 11, 10))
-        assertEquals(
-            listOf(
-                "https://cfp2.jw-cdn.org/a/a509da/1/o/bi12_22_Ca_E_03.mp3",
-                "https://cfp2.jw-cdn.org/a/a985a6/1/o/bi12_22_Ca_E_04.mp3",
-                "https://cfp2.jw-cdn.org/a/71cb20/1/o/bi12_22_Ca_E_05.mp3",
-            ),
-            playlist
-        )
-    }
 }

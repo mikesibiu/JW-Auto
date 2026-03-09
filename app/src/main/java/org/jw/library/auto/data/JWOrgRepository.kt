@@ -1,7 +1,9 @@
 package org.jw.library.auto.data
 
 import android.content.Context
+import android.content.Context.MODE_PRIVATE
 import android.util.Log
+import org.jw.library.auto.BuildConfig
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import okhttp3.OkHttpClient
@@ -298,17 +300,25 @@ class JWOrgRepository(
         return JWOrgContentUrls.watchtowerStudyUrl(weekStart)
     }
 
-    private fun fallbackBibleReadingUrls(weekStart: LocalDate): List<String> {
-        // JSON-based provider has more up-to-date week data than the inline map
-        val fromJson = meetingSectionsProvider.bibleReadingUrls(weekStart)
-        if (fromJson.isNotEmpty()) return fromJson
-        return JWOrgContentUrls.bibleReadingUrls(weekStart)
-    }
+    private fun fallbackBibleReadingUrls(weekStart: LocalDate): List<String> =
+        meetingSectionsProvider.bibleReadingUrls(weekStart)
 
-    private fun fallbackCongregationStudyUrls(weekStart: LocalDate): List<String> {
-        val fromJson = meetingSectionsProvider.congregationStudyUrls(weekStart)
-        if (fromJson.isNotEmpty()) return fromJson
-        return JWOrgContentUrls.congregationStudyUrls(weekStart)
+    private fun fallbackCongregationStudyUrls(weekStart: LocalDate): List<String> =
+        meetingSectionsProvider.congregationStudyUrls(weekStart)
+
+    /**
+     * Clears the content cache if the APK version code has changed since the last run.
+     * This prevents stale cached URLs from surviving a data-fix release.
+     */
+    suspend fun clearCacheIfVersionChanged() {
+        val prefs = context.getSharedPreferences("jw_app_state", MODE_PRIVATE)
+        val stored = prefs.getInt("version_code", -1)
+        val current = BuildConfig.VERSION_CODE
+        if (stored != current) {
+            Log.i(TAG, "Version changed ($stored → $current), clearing content cache")
+            contentDao.deleteAll()
+            prefs.edit().putInt("version_code", current).apply()
+        }
     }
 
     suspend fun getBibleBookAudio(bookNumber: Int): BibleBookAudio {

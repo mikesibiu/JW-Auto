@@ -87,6 +87,11 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
         )
         sessionToken = playbackManager.mediaSession.sessionToken
 
+        // Clear stale cache if the APK version changed (data-fix releases)
+        serviceScope.launch(Dispatchers.IO) {
+            contentRepository.clearCacheIfVersionChanged()
+        }
+
         // Schedule background content sync
         ContentSyncScheduler.schedulePeriodicSync(this)
         ContentSyncScheduler.scheduleImmediateSync(this)
@@ -151,7 +156,10 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        stopSelf()
+        val state = playbackManager.mediaSession.controller.playbackState?.state
+        if (state != PlaybackStateCompat.STATE_PLAYING) {
+            stopSelf()
+        }
     }
 
     override fun onDestroy() {
