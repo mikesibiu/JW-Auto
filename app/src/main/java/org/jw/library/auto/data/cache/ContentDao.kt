@@ -32,6 +32,9 @@ interface ContentDao {
     @Query("DELETE FROM cached_content")
     suspend fun deleteAll()
 
+    @Query("DELETE FROM cached_content")
+    fun deleteAllSync()
+
     @Query("SELECT COUNT(*) FROM cached_content")
     suspend fun count(): Int
 
