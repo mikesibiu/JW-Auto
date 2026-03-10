@@ -13,7 +13,7 @@ android {
         applicationId = "org.jw.library.auto"
         minSdk = 24  // Android 7.0 (matches JW Library requirement)
         targetSdk = 34
-        versionCode = 4
+        versionCode = 6
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
