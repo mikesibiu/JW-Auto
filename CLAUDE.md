@@ -2,10 +2,16 @@
 
 ## QA Gate (MANDATORY — NO EXCEPTIONS)
 
-Before every `installDebug`, you MUST run `./gradlew test installDebug` via the QA agent.
-Never run `installDebug` alone. Never skip tests. Never assume tests pass.
+Before every install, run the full QA sequence via the QA agent:
+```
+./gradlew test installDebug && ./gradlew connectedDebugAndroidTest
+```
 
-If any test fails: fix it, re-run QA, then install. Never install on a red build.
+1. Unit tests must pass (`./gradlew test`)
+2. Install the APK (`installDebug`)
+3. On-device instrumented tests must pass (`connectedDebugAndroidTest`)
+
+Never skip any step. Never assume tests pass. If any test fails: fix it, re-run, then proceed.
 
 ## After Every Bug That Reaches the User
 
