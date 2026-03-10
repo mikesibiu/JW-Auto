@@ -187,15 +187,21 @@ class JWOrgRepository(
      * No Room cache — the JSON is an embedded asset and is fast to read. Caching it
      * only created stale-data bugs (wrong chapters surviving APK updates for 5 weeks).
      */
-    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> =
-        fallbackBibleReadingUrls(weekStart)
+    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> {
+        val urls = fallbackBibleReadingUrls(weekStart)
+        Log.i(TAG, "CONTENT_CHECK bible_reading $weekStart -> ${urls.map { it.substringAfterLast('/') }}")
+        return urls
+    }
 
     /**
      * Returns Congregation Bible Study URLs for a specific week directly from the JSON asset.
      * No Room cache — same rationale as getBibleReadingUrls above.
      */
-    suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> =
-        fallbackCongregationStudyUrls(weekStart)
+    suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> {
+        val urls = fallbackCongregationStudyUrls(weekStart)
+        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${urls.map { it.substringAfterLast('/') }}")
+        return urls
+    }
 
     // Helper methods for caching
     private suspend fun cacheUrl(
