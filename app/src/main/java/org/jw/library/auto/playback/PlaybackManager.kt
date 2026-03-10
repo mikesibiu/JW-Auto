@@ -18,6 +18,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.annotation.VisibleForTesting
 import org.jw.library.auto.R
 import org.jw.library.auto.data.model.MediaContent
 
@@ -26,6 +27,7 @@ class PlaybackManager(
     private val onPlaybackStateChange: (Int, Long) -> Unit,
     private val onPlayFromMediaId: ((mediaId: String, extras: android.os.Bundle?) -> Unit)? = null
 ) {
+    private var lastPlayedMediaId: String? = null
     private val notificationManager: NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -133,10 +135,7 @@ class PlaybackManager(
                 }
             }
 
-            override fun onPlay() {
-                player.playWhenReady = true
-                updatePlaybackState(currentStateFromPlayer())
-            }
+            override fun onPlay() { handleOnPlay() }
 
             override fun onPause() {
                 player.playWhenReady = false
@@ -178,6 +177,21 @@ class PlaybackManager(
         player.release()
     }
 
+    @VisibleForTesting
+    internal fun handleOnPlay() {
+        val currentId = lastPlayedMediaId
+        val looksLikeWeeklyId = currentId != null && (
+            currentId.startsWith("this-") || currentId.startsWith("last-") || currentId.startsWith("next-")
+        )
+        if (looksLikeWeeklyId && onPlayFromMediaId != null) {
+            val extras = android.os.Bundle().apply { putLong(KEY_LAST_POSITION, player.currentPosition) }
+            onPlayFromMediaId.invoke(currentId!!, extras)
+            return
+        }
+        player.playWhenReady = true
+        updatePlaybackState(currentStateFromPlayer())
+    }
+
     fun play(content: MediaContent, startPositionMs: Long = 0L) {
         val playlist = when {
             content.playlistUrls.isNotEmpty() -> content.playlistUrls
@@ -215,6 +229,7 @@ class PlaybackManager(
                 .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, -1L)
                 .build()
         )
+        lastPlayedMediaId = content.id
         updatePlaybackState(currentStateFromPlayer())
     }
 
