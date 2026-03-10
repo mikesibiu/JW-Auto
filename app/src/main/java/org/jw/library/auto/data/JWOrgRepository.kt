@@ -183,62 +183,19 @@ class JWOrgRepository(
     }
 
     /**
-     * Fetch Bible reading URLs for a specific week
-     * Returns list of chapter URLs (for multi-chapter readings)
-     * Cache-first with fallback to hard-coded
+     * Returns Bible reading URLs for a specific week directly from the JSON asset.
+     * No Room cache — the JSON is an embedded asset and is fast to read. Caching it
+     * only created stale-data bugs (wrong chapters surviving APK updates for 5 weeks).
      */
-    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> {
-        val weekStartStr = weekStart.toString()
-        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_BIBLE_READING, weekStartStr)
-
-        // 1. Check cache first
-        val cached = contentDao.getByKey(cacheKey)
-        if (cached != null && !cached.isExpired() && cached.playlistUrls != null) {
-            Log.d(TAG, "Cache hit for bible reading $weekStart")
-            val type = object : TypeToken<List<String>>() {}.type
-            return gson.fromJson(cached.playlistUrls, type)
-        }
-
-        // 2. For now, use fallback (hard-coded URLs)
-        // Future: fetch from API when available
-        val urls = fallbackBibleReadingUrls(weekStart)
-
-        // Cache the result
-        if (urls.isNotEmpty()) {
-            cachePlaylist(cacheKey, CachedContent.TYPE_BIBLE_READING, weekStartStr, urls, weekStart)
-        }
-
-        return urls
-    }
+    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> =
+        fallbackBibleReadingUrls(weekStart)
 
     /**
-     * Fetch Congregation Bible Study URLs for a specific week
-     * Returns list of lesson URLs
-     * Cache-first with fallback to hard-coded
+     * Returns Congregation Bible Study URLs for a specific week directly from the JSON asset.
+     * No Room cache — same rationale as getBibleReadingUrls above.
      */
-    suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> {
-        val weekStartStr = weekStart.toString()
-        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_CONGREGATION_STUDY, weekStartStr)
-
-        // 1. Check cache first
-        val cached = contentDao.getByKey(cacheKey)
-        if (cached != null && !cached.isExpired() && cached.playlistUrls != null) {
-            Log.d(TAG, "Cache hit for congregation study $weekStart")
-            val type = object : TypeToken<List<String>>() {}.type
-            return gson.fromJson(cached.playlistUrls, type)
-        }
-
-        // 2. For now, use fallback (hard-coded URLs)
-        // Future: fetch from API when available
-        val urls = fallbackCongregationStudyUrls(weekStart)
-
-        // Cache the result
-        if (urls.isNotEmpty()) {
-            cachePlaylist(cacheKey, CachedContent.TYPE_CONGREGATION_STUDY, weekStartStr, urls, weekStart)
-        }
-
-        return urls
-    }
+    suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> =
+        fallbackCongregationStudyUrls(weekStart)
 
     // Helper methods for caching
     private suspend fun cacheUrl(
