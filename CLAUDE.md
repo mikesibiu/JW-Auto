@@ -4,12 +4,13 @@
 
 Before every install, run the full QA sequence via the QA agent:
 ```
-./gradlew test installDebug && ./gradlew connectedDebugAndroidTest
+./gradlew test installDebug connectedDebugAndroidTest installDebug
 ```
 
-1. Unit tests must pass (`./gradlew test`)
+1. Unit tests must pass (`test`)
 2. Install the APK (`installDebug`)
 3. On-device instrumented tests must pass (`connectedDebugAndroidTest`)
+4. Reinstall the APK (`installDebug`) — connectedDebugAndroidTest uninstalls the app after running; this ensures the app is always left on the device
 
 Never skip any step. Never assume tests pass. If any test fails: fix it, re-run, then proceed.
 
