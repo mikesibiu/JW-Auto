@@ -1,18 +1,27 @@
 # JW Library Auto — Project Rules
 
+## Device Rules (ABSOLUTE — NO EXCEPTIONS)
+
+- NEVER install anything on the user's phone without explicit permission for that specific install
+- NEVER uninstall anything from the user's phone, ever
+- NEVER run `connectedDebugAndroidTest` — it uninstalls the app after tests
+- Ask the user before every install: "Ready to install versionCode X?"
+
 ## QA Gate (MANDATORY — NO EXCEPTIONS)
 
-Before every install, run the full QA sequence via the QA agent:
+Before asking to install, run unit tests only:
 ```
-./gradlew test installDebug connectedDebugAndroidTest installDebug
+./gradlew test
 ```
 
-1. Unit tests must pass (`test`)
-2. Install the APK (`installDebug`)
-3. On-device instrumented tests must pass (`connectedDebugAndroidTest`)
-4. Reinstall the APK (`installDebug`) — connectedDebugAndroidTest uninstalls the app after running; this ensures the app is always left on the device
+All unit tests must pass before requesting install permission.
+After the user approves, run `./gradlew installDebug` only.
 
-Never skip any step. Never assume tests pass. If any test fails: fix it, re-run, then proceed.
+On-device verification (`ContentVerificationTest`) must be run manually by asking the user to run:
+```
+./gradlew connectedDebugAndroidTest
+```
+only when they are prepared for the app to be uninstalled and reinstalled.
 
 ## After Every Bug That Reaches the User
 
