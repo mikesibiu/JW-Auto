@@ -78,15 +78,18 @@ class ContentRepository(
         val watchtowerUrl = jwOrgRepository.getWatchtowerUrl(weekInfo.weekStart)
         val biblePlaylist = jwOrgRepository.getBibleReadingUrls(weekInfo.weekStart)
         val congregationPlaylist = jwOrgRepository.getCongregationStudyUrls(weekInfo.weekStart)
+        // Show the workbook numbering the congregation follows (e.g., "lfb lessons 70–71").
+        // Derive directly from the filenames provided by meeting_sections.json.
         val cbsSubtitle = try {
             val files = congregationPlaylist.map { it.substringAfterLast('/') }
-            val catalog = org.jw.library.auto.data.meeting.LfbLessonCatalog(context)
-            val map = catalog.lessonInfoForFilenames(files)
-            val nums = files.mapNotNull { map[it]?.number }.distinct().sorted()
-            when {
-                nums.isEmpty() -> null
-                nums.size == 1 -> "Lesson ${nums.first()} — ${map[files.first()]?.title ?: ""}"
-                else -> "Lesson ${nums.first()}–${nums.last()}"
+            val lessonNums = files.mapNotNull {
+                Regex("lfb_E_(\\d{3})\\.mp3", RegexOption.IGNORE_CASE)
+                    .find(it)?.groupValues?.get(1)?.toIntOrNull()
+            }.distinct().sorted()
+            when (lessonNums.size) {
+                0 -> null
+                1 -> "lfb lesson ${lessonNums.first()}"
+                else -> "lfb lessons ${lessonNums.first()}–${lessonNums.last()}"
             }
         } catch (_: Throwable) { null }
 
