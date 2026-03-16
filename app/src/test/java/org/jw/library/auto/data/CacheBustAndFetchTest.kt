@@ -80,13 +80,13 @@ class CacheBustAndFetchTest {
     // ── Test 3: cold cache returns correct URL from JSON ─────────────────────
 
     @Test
-    fun `getCongregationStudyUrls returns lfb_068 and lfb_069 for mar_09 when cache is empty`() = runBlocking {
+    fun `getCongregationStudyUrls returns mapped lfb_080 and lfb_081 for mar_09 when cache is empty`() = runBlocking {
         val repo = JWOrgRepository(context)
         val urls = withContext(Dispatchers.IO) {
             repo.getCongregationStudyUrls(LocalDate.parse("2026-03-09"))
         }
-        assertTrue("Expected lfb_E_068 in results: $urls", urls.any { it.contains("lfb_E_068") })
-        assertTrue("Expected lfb_E_069 in results: $urls", urls.any { it.contains("lfb_E_069") })
+        assertTrue("Expected lfb_E_080 in results: $urls", urls.any { it.contains("lfb_E_080") })
+        assertTrue("Expected lfb_E_081 in results: $urls", urls.any { it.contains("lfb_E_081") })
     }
 
     @Test
@@ -102,7 +102,7 @@ class CacheBustAndFetchTest {
     // ── Test 4: stale cached URL is not served after cache clear ──────────────
 
     @Test
-    fun `getCongregationStudyUrls returns JSON data not stale cached URL after cache clear`() = runBlocking {
+    fun `getCongregationStudyUrls returns mapped data not stale cached URL after cache clear`() = runBlocking {
         val dao = ContentDatabase.getDatabase(context).contentDao()
 
         // Simulate what was in cache before the data fix
@@ -117,7 +117,7 @@ class CacheBustAndFetchTest {
             repo.getCongregationStudyUrls(LocalDate.parse("2026-03-09"))
         }
         assertFalse("Stale lfb_E_057 must not be returned after cache clear", urls.any { it.contains("lfb_E_057") })
-        assertTrue("Fresh lfb_E_068 must be returned from JSON", urls.any { it.contains("lfb_E_068") })
+        assertTrue("Mapped lfb_E_080 must be returned via jw.org catalog", urls.any { it.contains("lfb_E_080") })
     }
 
     @Test

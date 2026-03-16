@@ -24,11 +24,24 @@ adb shell settings put global android_auto_dev_mode 1
 adb shell am force-stop com.google.android.projection.gearhead
 ```
 
-### Step 3: Test Audio URLs
+### Step 3: Verify Current-Week Mapping (Device)
 
-The app currently uses **sample URLs** that may or may not work. Here's how to verify and fix them:
+After opening the app once in Android Auto, run:
 
-## Verifying Audio URLs Work
+```
+adb logcat -d | grep CONTENT_CHECK
+```
+
+You should see lines like:
+
+```
+CONTENT_CHECK congregation_study 2026-03-16 WORKBOOK=lfb 70–71 RESOLVED=[lfb_E_082.mp3, lfb_E_083.mp3]
+```
+
+- WORKBOOK: from meeting_sections.json (Meeting Workbook)
+- RESOLVED: lfb_E_### files resolved via jw.org LFB catalog (GETPUBMEDIALINKS)
+
+## Verifying Audio URLs Manually (optional)
 
 ### Method 1: Quick Browser Test
 
@@ -44,10 +57,8 @@ Open these URLs in your browser to test if they're accessible:
    https://download-a.akamaihd.net/files/media_audio/50/w_E_202412.mp3
    ```
 
-3. **Congregation Bible Study**:
-   ```
-   https://download-a.akamaihd.net/files/media_audio/bf/bhs_E.mp3
-   ```
+3. **Congregation Bible Study (LFB catalog)**: Browse titles/files
+   - https://www.jw.org/download/?output=html&pub=lfb&fileformat=MP3%2CAAC&alllangs=0&langwritten=E&txtCMSLang=E&isBible=0
 
 4. **Meeting Workbook**:
    ```
@@ -80,7 +91,7 @@ Open these URLs in your browser to test if they're accessible:
 
 ---
 
-## Getting Real Audio URLs from JW.org
+## Getting Real Audio URLs from JW.org (advanced)
 
 ### Step-by-Step Instructions
 
