@@ -31,17 +31,27 @@ JWLibraryAutoService          ← MediaBrowserServiceCompat
    └── ContentSyncWorker       ← WorkManager 24h background pre-fetch
 ```
 
-### Content Resolution Chain
+### Content Resolution Chain (and how CBS stays in sync with jw.org)
 
-For most content (Watchtower, Workbook, Songs, Broadcasting):
-1. **Room cache** — if fresh (< 5 weeks), return cached URL
-2. **jw.org API** — live network fetch, cache result
-3. **JSON fallback** — `res/raw/meeting_sections.json`
-4. **Inline override map** — `JWOrgContentUrls.kt` (WATCHTOWER_OVERRIDES, WORKBOOK_OVERRIDES)
+For Watchtower, Workbook, Songs, and Broadcasting:
+1. Room cache (if fresh < 5 weeks)
+2. jw.org API live fetch
+3. JSON/manual fallbacks where applicable
 
-For **Bible reading** and **CBS** specifically:
-- Room cache is **bypassed entirely** — these always read from `meeting_sections.json`
-- Reason: JSON is the authoritative source; Room TTL caused stale-data bugs
+For Bible reading and Congregation Bible Study (CBS):
+- We start from `res/raw/meeting_sections.json` which encodes the official Meeting Workbook schedule per week.
+- That JSON lists CBS as two “lfb_E_###.mp3” filenames per week. Those numbers are the workbook’s internal file indices, not the spoken lesson numbers.
+- Many “lfb_E_###.mp3” files are section intros; therefore file index ≠ spoken lesson number. Example: `lfb_E_082.mp3` is spoken lesson 70.
+
+CBS playback uses a two‑step process:
+- Label (what you see in the AA row): derived from meeting_sections.json, e.g., “lfb lessons 70–71”. This always matches the workbook schedule for that week.
+- Audio (what actually plays): the app maps those workbook lesson numbers to the real mp3 URLs using jw.org’s official API (`GETPUBMEDIALINKS?pub=lfb`). This guarantees we play the correct “lfb_E_###.mp3” even when workbook numbers and file indices diverge.
+
+At runtime we log both to make validation trivial:
+```
+CONTENT_CHECK congregation_study 2026-03-16 WORKBOOK=lfb 70–71 RESOLVED=[lfb_E_082.mp3, lfb_E_083.mp3]
+```
+Use `adb logcat -d | grep CONTENT_CHECK` to verify any week.
 
 ### Key Files
 
@@ -130,7 +140,7 @@ Key test suites:
 
 ### Runtime Logcat Verification
 
-After installing, CBS and Bible reading URLs are logged:
+After installing, both the workbook label and the resolved filenames are logged for each week:
 
 ```
 adb logcat | grep CONTENT_CHECK
@@ -138,8 +148,8 @@ adb logcat | grep CONTENT_CHECK
 
 Example output:
 ```
-CONTENT_CHECK congregation_study 2026-03-09 -> [lfb_E_068.mp3, lfb_E_069.mp3]
-CONTENT_CHECK bible_reading 2026-03-09 -> [Isa_E_043.mp3, Isa_E_044.mp3]
+CONTENT_CHECK congregation_study 2026-03-16 WORKBOOK=lfb 70–71 RESOLVED=[lfb_E_082.mp3, lfb_E_083.mp3]
+CONTENT_CHECK bible_reading 2026-03-16 -> [bi12_23_Isa_E_45.mp3, bi12_23_Isa_E_46.mp3, bi12_23_Isa_E_47.mp3]
 ```
 
 ## Security
@@ -151,7 +161,7 @@ CONTENT_CHECK bible_reading 2026-03-09 -> [Isa_E_043.mp3, Isa_E_044.mp3]
 
 ## Known Issues
 
-See [TODO.md](TODO.md) for active bugs and planned work.
+- None open for CBS mapping. The app now derives the schedule from the workbook and the audio from jw.org’s LFB catalog, and logs both.
 
 ## Android Auto Testing
 

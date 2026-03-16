@@ -43,7 +43,7 @@ if [ -z "$LOGCAT" ]; then
 fi
 
 echo ""
-echo "=== Resolved URLs ==="
+echo "=== Resolved URLs (with workbook labels) ==="
 echo "$LOGCAT"
 echo ""
 
