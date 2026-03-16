@@ -199,8 +199,21 @@ class JWOrgRepository(
      */
     suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> {
         val urls = fallbackCongregationStudyUrls(weekStart)
-        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${urls.map { it.substringAfterLast("/") }}")
-        return urls
+        // Try to remap using LFB catalog so workbook lesson numbers (in filenames) map to the actual files.
+        // Example: workbook lists lfb_E_070/071 for week → spoken lessons 70/71 live at different files.
+        val desiredLessonNumbers = urls.mapNotNull {
+            Regex("lfb_E_(\\d{3})\\.mp3", RegexOption.IGNORE_CASE)
+                .find(it)?.groupValues?.get(1)?.toIntOrNull()
+        }
+        val remapped = try {
+            val catalog = org.jw.library.auto.data.meeting.LfbLessonCatalog(context)
+            val resolved = catalog.urlsForLessonNumbers(desiredLessonNumbers)
+            if (resolved.size == desiredLessonNumbers.size) resolved else emptyList()
+        } catch (_: Throwable) { emptyList() }
+
+        val finalUrls = if (remapped.isNotEmpty()) remapped else urls
+        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${finalUrls.map { it.substringAfterLast("/") }}")
+        return finalUrls
     }
     private suspend fun cacheUrl(
         cacheKey: String,

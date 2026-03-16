@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
  * We cache the mapping in SharedPreferences for 30 days to avoid repeated fetches.
  */
 class LfbLessonCatalog(private val context: Context) {
-    data class LessonInfo(val number: Int, val title: String)
+    data class LessonInfo(val number: Int, val title: String, val url: String)
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val client: OkHttpClient = OkHttpClient.Builder()
@@ -30,6 +30,12 @@ class LfbLessonCatalog(private val context: Context) {
     fun lessonInfoForFilenames(filenames: List<String>): Map<String, LessonInfo> {
         val map = loadMap()
         return filenames.associateWith { map[it] }.filterValues { it != null } as Map<String, LessonInfo>
+    }
+
+    fun urlsForLessonNumbers(numbers: List<Int>): List<String> {
+        val map = loadMap()
+        val byNumber = map.entries.groupBy { it.value.number }
+        return numbers.mapNotNull { num -> byNumber[num]?.firstOrNull()?.value?.url }
     }
 
     private fun loadMap(): Map<String, LessonInfo> {
@@ -66,14 +72,15 @@ class LfbLessonCatalog(private val context: Context) {
         val map = mutableMapOf<String, LessonInfo>()
         // Pattern: 59—Four Boys Who Obeyed Jehovah ... href=".../lfb_E_070.mp3"
         val regex = Regex(
-            pattern = ">\\s*(\\d{1,3})\u2014([^<]+?)<(?s).*?href=\"[^\"]*(lfb_E_\\d{3}\\.mp3)\"",
+            pattern = ">\\s*(\\d{1,3})\u2014([^<]+?)<(?s).*?href=\"([^\"]*?(lfb_E_\\d{3}\\.mp3))\"",
             options = setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
         )
         regex.findAll(html).forEach { m ->
             val num = m.groupValues[1].toIntOrNull() ?: return@forEach
             val title = m.groupValues[2].trim()
-            val file = m.groupValues[3]
-            map[file] = LessonInfo(num, title)
+            val fullUrl = m.groupValues[3]
+            val file = m.groupValues[4]
+            map[file] = LessonInfo(num, title, fullUrl)
         }
         return map
     }
@@ -81,7 +88,13 @@ class LfbLessonCatalog(private val context: Context) {
     private fun encode(map: Map<String, LessonInfo>): String {
         val arr = JSONArray()
         map.forEach { (k, v) ->
-            arr.put(JSONObject().put("file", k).put("num", v.number).put("title", v.title))
+            arr.put(
+                JSONObject()
+                    .put("file", k)
+                    .put("num", v.number)
+                    .put("title", v.title)
+                    .put("url", v.url)
+            )
         }
         return arr.toString()
     }
@@ -91,7 +104,14 @@ class LfbLessonCatalog(private val context: Context) {
         val out = mutableMapOf<String, LessonInfo>()
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
-            out[o.getString("file")] = LessonInfo(o.getInt("num"), o.getString("title"))
+            val file = o.optString("file")
+            val num = o.optInt("num")
+            val title = o.optString("title")
+            val url = o.optString("url", "")
+            // Handle old cache without url by skipping entry; it will be refetched.
+            if (file.isNotBlank() && url.isNotBlank()) {
+                out[file] = LessonInfo(num, title, url)
+            }
         }
         return out
     }
@@ -106,4 +126,3 @@ class LfbLessonCatalog(private val context: Context) {
         private val TTL_MS = TimeUnit.DAYS.toMillis(30)
     }
 }
-
