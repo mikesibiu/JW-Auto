@@ -2,10 +2,16 @@
 # Runtime content verification — triggers the ContentSyncWorker via WorkManager
 # and asserts the correct CBS and bible reading filenames appear in logcat.
 #
-# Usage: ./scripts/verify_content.sh
-# Run after installing the APK. Requires ADB and a connected device.
+# Usage: ./scripts/verify_content.sh [--date YYYY-MM-DD]
+# - If --date is provided, the script filters log lines for that weekStart date.
+# - Run after installing the APK. Requires ADB and a connected device.
 
 set -e
+
+FILTER_DATE=""
+if [ "$1" = "--date" ] && [ -n "${2:-}" ]; then
+  FILTER_DATE="$2"
+fi
 
 PACKAGE="org.jw.library.auto"
 SERVICE=".service.JWLibraryAutoService"
@@ -31,7 +37,11 @@ echo "Service started. Waiting ${WAIT_SECS}s for ContentSyncWorker to load conte
 sleep "$WAIT_SECS"
 
 # Capture all logcat from our package (CONTENT_CHECK lines are Log.i)
-LOGCAT=$(adb logcat -d 2>/dev/null | grep "CONTENT_CHECK" || true)
+if [ -n "$FILTER_DATE" ]; then
+  LOGCAT=$(adb logcat -d 2>/dev/null | grep "CONTENT_CHECK" | grep "$FILTER_DATE" || true)
+else
+  LOGCAT=$(adb logcat -d 2>/dev/null | grep "CONTENT_CHECK" || true)
+fi
 
 if [ -z "$LOGCAT" ]; then
     echo ""
