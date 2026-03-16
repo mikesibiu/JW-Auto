@@ -78,11 +78,12 @@ class ContentRepository(
         val watchtowerUrl = jwOrgRepository.getWatchtowerUrl(weekInfo.weekStart)
         val biblePlaylist = jwOrgRepository.getBibleReadingUrls(weekInfo.weekStart)
         val congregationPlaylist = jwOrgRepository.getCongregationStudyUrls(weekInfo.weekStart)
-        // Show the workbook numbering the congregation follows (e.g., "lfb lessons 70–71").
-        // Derive directly from the filenames provided by meeting_sections.json.
+        // Show workbook numbering from the original meeting_sections.json (not the remapped URLs).
         val cbsSubtitle = try {
-            val files = congregationPlaylist.map { it.substringAfterLast('/') }
-            val lessonNums = files.mapNotNull {
+            val provider = org.jw.library.auto.data.meeting.MeetingSectionsProvider(context)
+            val workbookFiles = provider.congregationStudyUrls(weekInfo.weekStart)
+                .map { it.substringAfterLast('/') }
+            val lessonNums = workbookFiles.mapNotNull {
                 Regex("lfb_E_(\\d{3})\\.mp3", RegexOption.IGNORE_CASE)
                     .find(it)?.groupValues?.get(1)?.toIntOrNull()
             }.distinct().sorted()
