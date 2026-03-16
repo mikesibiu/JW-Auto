@@ -2,8 +2,8 @@ package org.jw.library.auto.data.meeting
 
 import android.content.Context
 import android.util.Log
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import org.jw.library.auto.data.api.ApiClient
+import org.jw.library.auto.data.api.JWOrgApiService
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -17,13 +17,13 @@ import java.util.concurrent.TimeUnit
  *
  * We cache the mapping in SharedPreferences for 30 days to avoid repeated fetches.
  */
-class LfbLessonCatalog(private val context: Context) {
+class LfbLessonCatalog(
+    private val context: Context,
+    private val api: JWOrgApiService = ApiClient.jwOrgApi
+) {
     data class LessonInfo(val number: Int, val title: String, val url: String)
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(15, TimeUnit.SECONDS)
-        .build()
 
     fun lessonInfoFor(filename: String): LessonInfo? = loadMap()[filename]
 
@@ -47,8 +47,7 @@ class LfbLessonCatalog(private val context: Context) {
             return decode(cachedJson)
         }
         return try {
-            val html = fetchCatalogHtml()
-            val map = parse(html)
+            val map = kotlinx.coroutines.runBlocking { fetchFromApi() }
             prefs.edit().putString(KEY_JSON, encode(map)).putLong(KEY_FETCHED_AT, now).apply()
             map
         } catch (t: Throwable) {
@@ -57,30 +56,16 @@ class LfbLessonCatalog(private val context: Context) {
         }
     }
 
-    private fun fetchCatalogHtml(): String {
-        val req = Request.Builder()
-            .url(SRC_URL)
-            .header("User-Agent", UA)
-            .build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) error("HTTP ${resp.code}")
-            return resp.body?.string() ?: error("empty body")
-        }
-    }
-
-    private fun parse(html: String): Map<String, LessonInfo> {
+    private suspend fun fetchFromApi(): Map<String, LessonInfo> {
         val map = mutableMapOf<String, LessonInfo>()
-        // Pattern: 59—Four Boys Who Obeyed Jehovah ... href=".../lfb_E_070.mp3"
-        val regex = Regex(
-            pattern = ">\\s*(\\d{1,3})\u2014([^<]+?)<(?s).*?href=\"([^\"]*?(lfb_E_\\d{3}\\.mp3))\"",
-            options = setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
-        )
-        regex.findAll(html).forEach { m ->
-            val num = m.groupValues[1].toIntOrNull() ?: return@forEach
-            val title = m.groupValues[2].trim()
-            val fullUrl = m.groupValues[3]
-            val file = m.groupValues[4]
-            map[file] = LessonInfo(num, title, fullUrl)
+        val resp = api.getPublicationMedia(pub = "lfb")
+        val files = resp.files?.values?.flatMap { (it.mp3Files.orEmpty() + it.aacFiles.orEmpty()) }.orEmpty()
+        files.forEach { f ->
+            val url = f.file?.url ?: return@forEach
+            val file = url.substringAfterLast('/')
+            val title = f.title?.trim().orEmpty()
+            val num = Regex("^(\\d{1,3})").find(title)?.groupValues?.get(1)?.toIntOrNull() ?: return@forEach
+            map[file] = LessonInfo(num, title, url)
         }
         return map
     }
@@ -121,8 +106,6 @@ class LfbLessonCatalog(private val context: Context) {
         private const val PREFS = "lfb_catalog_cache"
         private const val KEY_JSON = "json"
         private const val KEY_FETCHED_AT = "fetched_at"
-        private const val SRC_URL = "https://www.jw.org/download/?output=html&pub=lfb&fileformat=MP3&alllangs=0&langwritten=E&txtCMSLang=E&isBible=0"
-        private const val UA = "Mozilla/5.0 (Android) JWLibraryAuto/1.0"
         private val TTL_MS = TimeUnit.DAYS.toMillis(30)
     }
 }

@@ -211,7 +211,15 @@ class JWOrgRepository(
             if (resolved.size == desiredLessonNumbers.size) resolved else emptyList()
         } catch (_: Throwable) { emptyList() }
 
-        val finalUrls = if (remapped.isNotEmpty()) remapped else urls
+        val finalUrls = if (remapped.isNotEmpty()) remapped else when (weekStart) {
+            // Emergency override for current week where workbook lists lessons 70–71
+            // and the catalog fetch may be blocked; use verified CDN URLs provided.
+            LocalDate.parse("2026-03-16") -> listOf(
+                "https://cfp2.jw-cdn.org/a/a74778/1/o/lfb_E_082.mp3",
+                "https://cfp2.jw-cdn.org/a/e02286/1/o/lfb_E_083.mp3"
+            )
+            else -> urls
+        }
         Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${finalUrls.map { it.substringAfterLast("/") }}")
         return finalUrls
     }
