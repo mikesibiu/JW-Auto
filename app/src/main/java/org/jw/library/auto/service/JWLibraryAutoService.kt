@@ -130,14 +130,7 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
                         .setTitle(content.title)
                         .setSubtitle(content.subtitle)
                         .setExtras(Bundle().apply {
-                            content.streamUrl?.let { putString(PlaybackManager.KEY_STREAM_URI, it) }
                             putString(MediaMetadataCompat.METADATA_KEY_TITLE, content.title)
-                            if (content.playlistUrls.isNotEmpty()) {
-                                putStringArrayList(
-                                    PlaybackManager.KEY_PLAYLIST,
-                                    ArrayList(content.playlistUrls)
-                                )
-                            }
                             putLong(PlaybackManager.KEY_LAST_POSITION, lastPosition)
                         })
                         .build()

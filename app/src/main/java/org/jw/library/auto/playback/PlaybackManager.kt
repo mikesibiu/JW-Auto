@@ -184,8 +184,10 @@ class PlaybackManager(
             currentId.startsWith("this-") || currentId.startsWith("last-") || currentId.startsWith("next-")
         )
         if (looksLikeWeeklyId && onPlayFromMediaId != null) {
+            Log.i(TAG, "RESUME re-resolve weekly id=" + currentId + " pos=" + player.currentPosition)
             val extras = android.os.Bundle().apply { putLong(KEY_LAST_POSITION, player.currentPosition) }
             onPlayFromMediaId.invoke(currentId!!, extras)
+            Log.i(TAG, "RESUME delegated to service; returning")
             return
         }
         player.playWhenReady = true
@@ -199,10 +201,9 @@ class PlaybackManager(
             else -> emptyList()
         }
         if (playlist.isEmpty()) {
-            Log.w(TAG, "No media URLs found for ${content.id}")
+            Log.w(TAG, "No media URLs found for "+ content.id)
             return
         }
-
         val mediaItems = playlist.mapIndexed { index, uri ->
             MediaItem.Builder()
                 .setMediaId("${content.id}-$index")

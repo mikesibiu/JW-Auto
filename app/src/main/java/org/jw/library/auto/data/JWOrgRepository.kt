@@ -199,11 +199,9 @@ class JWOrgRepository(
      */
     suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> {
         val urls = fallbackCongregationStudyUrls(weekStart)
-        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${urls.map { it.substringAfterLast('/') }}")
+        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart -> ${urls.map { it.substringAfterLast("/") }}")
         return urls
     }
-
-    // Helper methods for caching
     private suspend fun cacheUrl(
         cacheKey: String,
         contentType: String,
@@ -214,7 +212,6 @@ class JWOrgRepository(
         val now = System.currentTimeMillis()
         val isInFuture = weekStartDate.isAfter(LocalDate.now())
         val ttl = if (isInFuture) CachedContent.TTL_FUTURE_MILLIS else CachedContent.TTL_PAST_MILLIS
-
         val cachedContent = CachedContent(
             cacheKey = cacheKey,
             contentType = contentType,
