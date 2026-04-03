@@ -58,3 +58,8 @@ captures/
 *.keystore
 *.jks
 SharePub/*.apk
+
+# Claude KB — binary DB ignored, tooling committed
+.claude/knowledge.db
+.claude/knowledge.db-wal
+.claude/knowledge.db-shm

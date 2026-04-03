@@ -43,3 +43,45 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home ./gradl
 
 Room database calls are never allowed on the main thread.
 Any code in `Service.onCreate()` runs on the main thread — use `runBlocking(Dispatchers.IO)` to call suspend DB functions from there.
+
+---
+
+## Knowledge Base Workflow — follow this on every interaction, without being asked
+
+### Step 1 — Search before doing anything
+Before answering, suggesting an approach, writing code, or making changes:
+
+```bash
+python3 .claude/kb.py search <keywords relevant to the task>
+```
+
+Read the results and act on them:
+
+- **outcome: LEARNED** — established knowledge for this project. Use it. Don't re-derive it. Don't second-guess it.
+- **outcome: FAILED** — already tried and failed. Do NOT suggest it again. Tell the user "we already tried X and it failed because Y" and move on.
+
+Also run orientation searches at session start:
+```bash
+python3 .claude/kb.py search project overview
+python3 .claude/kb.py search file index
+```
+
+### Step 2 — Save what you learn
+After any non-trivial interaction, save durable knowledge:
+
+```bash
+# Learned fact (always quote the whole string):
+python3 .claude/kb.py learn "topic | what is true / what works | tags"
+
+# Failed attempt:
+python3 .claude/kb.py failed "topic | what was tried | why it failed | tags"
+```
+
+Save immediately when:
+- A bug is found and fixed
+- The user corrects a mistake
+- An approach is tried and rejected
+- A design decision is made
+- A config quirk or non-obvious fact is discovered
+
+Do NOT save: general knowledge, anything in official docs, temporary session context.
