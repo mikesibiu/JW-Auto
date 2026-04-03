@@ -31,6 +31,7 @@ class BibleAudioParserTest {
             file = FileInfo(url = url, filesize = null, duration = null, bitRate = null),
             label = null,
             track = track,
-            bookNumber = book
+            bookNumber = book,
+            docid = null
         )
 }

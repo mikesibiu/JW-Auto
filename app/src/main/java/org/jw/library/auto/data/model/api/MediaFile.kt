@@ -19,7 +19,10 @@ data class MediaFile(
     val track: Int?,
 
     @SerializedName("booknum")
-    val bookNumber: Int?
+    val bookNumber: Int?,
+
+    @SerializedName("docid")
+    val docid: Long?
 )
 
 data class FileInfo(

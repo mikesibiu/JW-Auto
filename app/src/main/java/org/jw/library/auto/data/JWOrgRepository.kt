@@ -18,7 +18,10 @@ import org.jw.library.auto.data.bible.BibleBooks
 import org.jw.library.auto.data.cache.CachedContent
 import org.jw.library.auto.data.cache.CachedSong
 import org.jw.library.auto.data.cache.ContentDatabase
+import org.jw.library.auto.data.meeting.LfbLessonCatalog
 import org.jw.library.auto.data.meeting.MeetingSectionsProvider
+import org.jw.library.auto.data.meeting.MwbScheduleProvider
+import java.util.Locale
 import org.jw.library.auto.data.model.BibleDrama
 import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
@@ -53,6 +56,8 @@ class JWOrgRepository(
     private val contentDao by lazy { ContentDatabase.getDatabase(context).contentDao() }
     private val songDao by lazy { ContentDatabase.getDatabase(context).songDao() }
     private val meetingSectionsProvider by lazy { MeetingSectionsProvider(context) }
+    private val mwbScheduleProvider by lazy { MwbScheduleProvider(context, apiService) }
+    private val lfbLessonCatalog by lazy { LfbLessonCatalog(context, apiService) }
 
     data class BibleBookAudio(val intro: String?, val chapters: List<String>)
 
@@ -140,12 +145,13 @@ class JWOrgRepository(
 
     /**
      * Fetch Watchtower study audio URL for a specific week.
-     * Cache → override map (known-good hand-curated URLs) → API → fallback.
+     * Cache → dynamic API (issue = meeting date − 2 months, match by track title) →
+     * override map → generic fallback.
      *
-     * The study Watchtower is published ~2 months before the meeting date, so
-     * querying the API by the meeting-week's month returns the wrong issue.
-     * The override map (maintained in JWOrgContentUrls) contains the exact
-     * correct URLs for each week and is always preferred over the API.
+     * The study Watchtower is published ~2 months before the meeting date.
+     * The API track titles include the meeting date in parentheses, e.g.
+     * "Speak the Truth Graciously (March 2-8)", so we can match precisely.
+     * We try −2 months first, then −3 months to cover occasional edge cases.
      */
     suspend fun getWatchtowerUrl(weekStart: LocalDate): String {
         val weekStartStr = weekStart.toString()
@@ -157,7 +163,15 @@ class JWOrgRepository(
             return cached.url ?: fallbackWatchtowerUrl(weekStart)
         }
 
-        // Use the override map first — it has the correct publication issue for each week.
+        // Dynamic: find WT issue ~2 months before, match track title to this week
+        val dynamicUrl = fetchWatchtowerDynamic(weekStart)
+        if (dynamicUrl != null) {
+            Log.d(TAG, "Dynamic Watchtower resolved for $weekStart")
+            cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, dynamicUrl, weekStart)
+            return dynamicUrl
+        }
+
+        // Override map safety net (covers through 2026-04-27)
         val overrideUrl = JWOrgContentUrls.watchtowerOverrideUrl(weekStart)
         if (overrideUrl != null) {
             Log.d(TAG, "Using Watchtower override for $weekStart")
@@ -165,67 +179,110 @@ class JWOrgRepository(
             return overrideUrl
         }
 
-        // No override — fall back to API for weeks beyond the override map.
+        if (cached != null) return cached.url ?: fallbackWatchtowerUrl(weekStart)
+        return fallbackWatchtowerUrl(weekStart)
+    }
+
+    private suspend fun fetchWatchtowerDynamic(weekStart: LocalDate): String? {
+        val month = weekStart.monthValue
+        val day = weekStart.dayOfMonth
+        val monthName = DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH).format(weekStart)
+        // Title contains "(March 9-15)" — match month+day followed by non-digit to avoid
+        // "March 9" matching "March 19"
+        val pattern = Regex("\\($monthName $day[^0-9]")
+
+        for (monthsBack in 2..3) {
+            val issueDate = weekStart.minusMonths(monthsBack.toLong())
+            val issue = yearMonthFormat.format(issueDate)
+            try {
+                val response = apiService.getPublicationMedia(pub = PUB_WATCHTOWER, issue = issue)
+                val tracks = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
+                val url = tracks.firstOrNull { pattern.containsMatchIn(it.title ?: "") }?.file?.url
+                if (url != null) {
+                    Log.d(TAG, "Watchtower for $weekStart found in issue $issue")
+                    return url
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "WT dynamic fetch failed for issue $issue", e)
+            }
+        }
+        return null
+    }
+
+    /**
+     * Returns Bible reading URLs for a specific week.
+     * Dynamic first (MWB API → wol.jw.org schedule page → NWT Bible catalog) →
+     * falls back to meeting_sections.json if dynamic fetch fails.
+     */
+    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> {
+        val dynamic = fetchDynamicBibleReadingUrls(weekStart)
+        if (dynamic.isNotEmpty()) {
+            Log.i(TAG, "CONTENT_CHECK bible_reading $weekStart -> ${dynamic.map { it.substringAfterLast('/') }} [dynamic]")
+            return dynamic
+        }
+        val fallback = fallbackBibleReadingUrls(weekStart)
+        Log.i(TAG, "CONTENT_CHECK bible_reading $weekStart -> ${fallback.map { it.substringAfterLast('/') }} [json]")
+        return fallback
+    }
+
+    private suspend fun fetchDynamicBibleReadingUrls(weekStart: LocalDate): List<String> {
         return try {
-            val yearMonth = yearMonthFormat.format(weekStart)
-            val response = apiService.getPublicationMedia(pub = PUB_WATCHTOWER, issue = yearMonth)
-            val url = response.files?.values?.firstOrNull()
-                ?.mp3Files?.firstOrNull()
-                ?.file?.url
-                ?: fallbackWatchtowerUrl(weekStart)
-            cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, url, weekStart)
-            url
-        } catch (e: Exception) {
-            Log.w(TAG, "API fetch failed for watchtower $weekStart, using fallback", e)
-            if (cached != null) return cached.url ?: fallbackWatchtowerUrl(weekStart)
-            fallbackWatchtowerUrl(weekStart)
+            val schedule = mwbScheduleProvider.getSchedule(weekStart) ?: return emptyList()
+            val catalog = ensureBibleCatalog()
+            val bookAudio = catalog[schedule.bibleBookNumber] ?: return emptyList()
+            (schedule.bibleStartChapter..schedule.bibleEndChapter).mapNotNull { chapter ->
+                val idx = chapter - 1
+                bookAudio.chapters.getOrNull(idx)
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "Dynamic bible reading failed for $weekStart", t)
+            emptyList()
         }
     }
 
     /**
-     * Returns Bible reading URLs for a specific week directly from the JSON asset.
-     * No Room cache — the JSON is an embedded asset and is fast to read. Caching it
-     * only created stale-data bugs (wrong chapters surviving APK updates for 5 weeks).
-     */
-    suspend fun getBibleReadingUrls(weekStart: LocalDate): List<String> {
-        val urls = fallbackBibleReadingUrls(weekStart)
-        Log.i(TAG, "CONTENT_CHECK bible_reading $weekStart -> ${urls.map { it.substringAfterLast('/') }}")
-        return urls
-    }
-
-    /**
-     * Returns Congregation Bible Study URLs for a specific week directly from the JSON asset.
-     * No Room cache — same rationale as getBibleReadingUrls above.
+     * Returns Congregation Bible Study URLs for a specific week.
+     * Dynamic first (wol.jw.org schedule page → lesson numbers → LFB catalog URLs) →
+     * falls back to meeting_sections.json + LFB catalog remapping.
      */
     suspend fun getCongregationStudyUrls(weekStart: LocalDate): List<String> {
-        val urls = fallbackCongregationStudyUrls(weekStart)
-        // Derive workbook lesson numbers (from filenames embedded in meeting_sections.json)
-        val desiredLessonNumbers = urls.mapNotNull {
+        val dynamic = fetchDynamicCbsUrls(weekStart)
+        if (dynamic.isNotEmpty()) {
+            Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart RESOLVED=${dynamic.map { it.substringAfterLast('/') }} [dynamic]")
+            return dynamic
+        }
+
+        // Fallback: derive lesson numbers from meeting_sections.json filenames → LFB catalog
+        val jsonUrls = fallbackCongregationStudyUrls(weekStart)
+        val lessonNumbers = jsonUrls.mapNotNull {
             Regex("lfb_E_(\\d{3})\\.mp3", RegexOption.IGNORE_CASE)
                 .find(it)?.groupValues?.get(1)?.toIntOrNull()
         }
-        val workbookLabel = when (desiredLessonNumbers.size) {
+        val workbookLabel = when (lessonNumbers.size) {
             0 -> ""
-            1 -> "lfb ${desiredLessonNumbers.first()}"
-            else -> "lfb ${desiredLessonNumbers.first()}–${desiredLessonNumbers.last()}"
+            1 -> "lfb ${lessonNumbers.first()}"
+            else -> "lfb ${lessonNumbers.first()}–${lessonNumbers.last()}"
         }
         val remapped = try {
-            val catalog = org.jw.library.auto.data.meeting.LfbLessonCatalog(context)
-            val resolved = catalog.urlsForLessonNumbers(desiredLessonNumbers)
-            if (resolved.size == desiredLessonNumbers.size) resolved else emptyList()
+            val resolved = lfbLessonCatalog.urlsForLessonNumbers(lessonNumbers)
+            if (resolved.size == lessonNumbers.size) resolved else emptyList()
         } catch (_: Throwable) { emptyList() }
 
-        val finalUrls = if (remapped.isNotEmpty()) remapped else when (weekStart) {
-            // Emergency override for current week where workbook lists lessons 70–71
-            // and the catalog fetch may be blocked; use verified CDN URLs provided.
-            LocalDate.parse("2026-03-16") -> listOf(
-                "https://cfp2.jw-cdn.org/a/a74778/1/o/lfb_E_082.mp3",
-                "https://cfp2.jw-cdn.org/a/e02286/1/o/lfb_E_083.mp3"
-            )
-            else -> urls
-        }
-        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart WORKBOOK=$workbookLabel RESOLVED=${finalUrls.map { it.substringAfterLast("/") }}")
+        val finalUrls = if (remapped.isNotEmpty()) remapped else jsonUrls
+        Log.i(TAG, "CONTENT_CHECK congregation_study $weekStart WORKBOOK=$workbookLabel RESOLVED=${finalUrls.map { it.substringAfterLast('/') }} [json]")
         return finalUrls
+    }
+
+    private suspend fun fetchDynamicCbsUrls(weekStart: LocalDate): List<String> {
+        return try {
+            val schedule = mwbScheduleProvider.getSchedule(weekStart) ?: return emptyList()
+            if (schedule.cbsLessons.isEmpty()) return emptyList()
+            val resolved = lfbLessonCatalog.urlsForLessonNumbers(schedule.cbsLessons)
+            if (resolved.size == schedule.cbsLessons.size) resolved else emptyList()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Dynamic CBS fetch failed for $weekStart", t)
+            emptyList()
+        }
     }
     private suspend fun cacheUrl(
         cacheKey: String,
