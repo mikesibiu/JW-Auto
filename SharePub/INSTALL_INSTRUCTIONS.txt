@@ -2,7 +2,7 @@
 JW LIBRARY AUTO - INSTALLATION GUIDE
 ========================================
 
-Version: 1.0.3
+Version: 1.0.4
 App: JW Library Auto for Android Auto
 
 This app allows you to listen to JW.org content through
@@ -41,7 +41,7 @@ STEP 3: INSTALL THE APK
 ========================================
 
 Option A - Transfer via USB/Cloud:
-1. Copy "JW-Library-Auto-v1.0.3.apk" to your phone
+1. Copy "JW-Library-Auto-v1.0.4.apk" to your phone
 2. Use your file manager to locate the APK
 3. Tap the APK file
 4. Tap "Install" when prompted
@@ -150,7 +150,7 @@ JW BROADCASTING:
 VERSION INFO
 ========================================
 
-Release: JW-Library-Auto-v1.0.3.apk (7.9 MB)
+Release: JW-Library-Auto-v1.0.4.apk (7.9 MB)
 
 Use the Release version for normal use.
 
