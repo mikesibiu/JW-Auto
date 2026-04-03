@@ -28,6 +28,7 @@ class ContentRepository(
         private const val CATEGORY_HEBREW_SCRIPTURES = "hebrew_scriptures"
         private const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
         private const val CATEGORY_BROADCASTING = "broadcasting"
+        private val BIBLE_BOOK_ID_REGEX = Regex("bible-(hebrew|greek)-\\d+")
         // Static JW.org sample that reliably returns 200 for fallback playback (Kingdom Song)
         private const val SAMPLE_AUDIO = "https://cfp2.jw-cdn.org/a/7f4ac57/1/o/lfb_E_033.mp3"
     }
@@ -57,6 +58,7 @@ class ContentRepository(
         )
         parentId == CATEGORY_HEBREW_SCRIPTURES -> bibleBooks(Testament.HEBREW)
         parentId == CATEGORY_GREEK_SCRIPTURES -> bibleBooks(Testament.GREEK)
+        parentId.matches(BIBLE_BOOK_ID_REGEX) -> bibleChapters(parentId)
         parentId == CATEGORY_SONGS -> loadSongGroups()
 
         parentId.startsWith(SONGS_GROUP_PREFIX) -> {
@@ -160,22 +162,53 @@ class ContentRepository(
         )
     )
 
-    private suspend fun bibleBooks(testament: Testament): List<MediaContent> =
+    private fun bibleBooks(testament: Testament): List<MediaContent> =
         BibleBooks.booksFor(testament).map { book ->
-            val audio = jwOrgRepository.getBibleBookAudio(book.number)
-            val playlist = mutableListOf<String>()
-            audio.intro?.let { playlist.add(it) }
-            playlist.addAll(audio.chapters)
-            val streamUrl = playlist.firstOrNull() ?: SAMPLE_AUDIO
-            val bookId = "bible-${testament.name.lowercase()}-${book.number}"
             MediaContent(
-                id = bookId,
+                id = "bible-${testament.name.lowercase()}-${book.number}",
                 title = book.abbreviation,
                 subtitle = book.title,
-                streamUrl = streamUrl,
-                playlistUrls = playlist
+                isBrowsable = true,
             )
         }
+
+    private suspend fun bibleChapters(bookId: String): List<MediaContent> {
+        // bookId format: "bible-{testament}-{bookNumber}"
+        val parts = bookId.split("-")
+        val bookNumber = parts.lastOrNull()?.toIntOrNull() ?: return emptyList()
+        val testament = if (parts.getOrNull(1) == "hebrew") Testament.HEBREW else Testament.GREEK
+        val book = BibleBooks.booksFor(testament).firstOrNull { it.number == bookNumber }
+            ?: return emptyList()
+        val audio = jwOrgRepository.getBibleBookAudio(bookNumber)
+        val allUrls = buildList {
+            audio.intro?.let { add(it) }
+            addAll(audio.chapters)
+        }
+        if (allUrls.isEmpty()) return emptyList()
+
+        return buildList {
+            audio.intro?.let { introUrl ->
+                add(MediaContent(
+                    id = "$bookId-intro",
+                    title = context.getString(R.string.content_bible_reading), // reuse closest string
+                    subtitle = book.title,
+                    streamUrl = introUrl,
+                    playlistUrls = allUrls,
+                ))
+            }
+            audio.chapters.forEachIndexed { index, chapterUrl ->
+                val chapterNumber = index + 1
+                add(MediaContent(
+                    id = "$bookId-ch-$chapterNumber",
+                    title = context.getString(R.string.bible_chapter_label, chapterNumber),
+                    subtitle = book.title,
+                    streamUrl = chapterUrl,
+                    // Playlist: from this chapter to end of book — useful for car listening
+                    playlistUrls = allUrls.drop(if (audio.intro != null) index + 1 else index),
+                ))
+            }
+        }
+    }
 
     private suspend fun loadBroadcastingContent(): List<MediaContent> {
         val programs = jwOrgRepository.getMonthlyPrograms()
