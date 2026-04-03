@@ -11,6 +11,7 @@
     <string name="songs_group_label">Songs %1$s–%2$s</string>
     <string name="category_bible">Bible</string>
     <string name="bible_chapter_label">Chapter %d</string>
+    <string name="bible_chapter_group_label">Chapters %1$d–%2$d</string>
     <string name="category_bible_and_songs">Bible &amp; Songs</string>
     <string name="category_hebrew_scriptures">Hebrew Scriptures</string>
     <string name="category_greek_scriptures">Greek Scriptures</string>

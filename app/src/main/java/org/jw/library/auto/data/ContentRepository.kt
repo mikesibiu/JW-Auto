@@ -29,6 +29,8 @@ class ContentRepository(
         private const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
         private const val CATEGORY_BROADCASTING = "broadcasting"
         private val BIBLE_BOOK_ID_REGEX = Regex("bible-(hebrew|greek)-\\d+")
+        private const val CHAPTER_GROUP_PREFIX = "-cg-"
+        private const val CHAPTER_GROUP_SIZE = 10
         // Static JW.org sample that reliably returns 200 for fallback playback (Kingdom Song)
         private const val SAMPLE_AUDIO = "https://cfp2.jw-cdn.org/a/7f4ac57/1/o/lfb_E_033.mp3"
     }
@@ -59,6 +61,7 @@ class ContentRepository(
         parentId == CATEGORY_HEBREW_SCRIPTURES -> bibleBooks(Testament.HEBREW)
         parentId == CATEGORY_GREEK_SCRIPTURES -> bibleBooks(Testament.GREEK)
         parentId.matches(BIBLE_BOOK_ID_REGEX) -> bibleChapters(parentId)
+        parentId.contains(CHAPTER_GROUP_PREFIX) -> bibleChapterGroup(parentId)
         parentId == CATEGORY_SONGS -> loadSongGroups()
 
         parentId.startsWith(SONGS_GROUP_PREFIX) -> {
@@ -172,43 +175,71 @@ class ContentRepository(
             )
         }
 
+    /**
+     * Returns the content of a Bible book folder.
+     * Books with > CHAPTER_GROUP_SIZE chapters show "Chapters 1–20" sub-folders (like Kingdom Songs).
+     * Shorter books show chapters directly.
+     */
     private suspend fun bibleChapters(bookId: String): List<MediaContent> {
-        // bookId format: "bible-{testament}-{bookNumber}"
-        val parts = bookId.split("-")
-        val bookNumber = parts.lastOrNull()?.toIntOrNull() ?: return emptyList()
-        val testament = if (parts.getOrNull(1) == "hebrew") Testament.HEBREW else Testament.GREEK
-        val book = BibleBooks.booksFor(testament).firstOrNull { it.number == bookNumber }
+        val audio = jwOrgRepository.getBibleBookAudio(bookIdToBookNumber(bookId) ?: return emptyList())
+        if (audio.chapters.isEmpty()) return emptyList()
+
+        if (audio.chapters.size <= CHAPTER_GROUP_SIZE) {
+            return chapterItems(bookId, audio, 0, audio.chapters.size - 1)
+        }
+
+        // Group into folders of CHAPTER_GROUP_SIZE
+        return audio.chapters.chunked(CHAPTER_GROUP_SIZE).mapIndexed { index, _ ->
+            val first = index * CHAPTER_GROUP_SIZE + 1
+            val last = minOf(first + CHAPTER_GROUP_SIZE - 1, audio.chapters.size)
+            MediaContent(
+                id = "$bookId${CHAPTER_GROUP_PREFIX}$index",
+                title = context.getString(R.string.bible_chapter_group_label, first, last),
+                isBrowsable = true,
+            )
+        }
+    }
+
+    /** Returns individual chapter items for a chapter-group folder. */
+    private suspend fun bibleChapterGroup(groupId: String): List<MediaContent> {
+        val cgIdx = groupId.indexOf(CHAPTER_GROUP_PREFIX)
+        if (cgIdx < 0) return emptyList()
+        val bookId = groupId.substring(0, cgIdx)
+        val groupIndex = groupId.substring(cgIdx + CHAPTER_GROUP_PREFIX.length).toIntOrNull()
             ?: return emptyList()
-        val audio = jwOrgRepository.getBibleBookAudio(bookNumber)
+        val audio = jwOrgRepository.getBibleBookAudio(bookIdToBookNumber(bookId) ?: return emptyList())
+        val startIndex = groupIndex * CHAPTER_GROUP_SIZE
+        val endIndex = minOf(startIndex + CHAPTER_GROUP_SIZE - 1, audio.chapters.size - 1)
+        if (startIndex > endIndex) return emptyList()
+        return chapterItems(bookId, audio, startIndex, endIndex)
+    }
+
+    /** Builds playable chapter MediaContent items for a range of 0-based chapter indices. */
+    private fun chapterItems(
+        bookId: String,
+        audio: JWOrgRepository.BibleBookAudio,
+        startIndex: Int,
+        endIndex: Int,
+    ): List<MediaContent> {
         val allUrls = buildList {
             audio.intro?.let { add(it) }
             addAll(audio.chapters)
         }
-        if (allUrls.isEmpty()) return emptyList()
-
-        return buildList {
-            audio.intro?.let { introUrl ->
-                add(MediaContent(
-                    id = "$bookId-intro",
-                    title = context.getString(R.string.content_bible_reading), // reuse closest string
-                    subtitle = book.title,
-                    streamUrl = introUrl,
-                    playlistUrls = allUrls,
-                ))
-            }
-            audio.chapters.forEachIndexed { index, chapterUrl ->
-                val chapterNumber = index + 1
-                add(MediaContent(
-                    id = "$bookId-ch-$chapterNumber",
-                    title = context.getString(R.string.bible_chapter_label, chapterNumber),
-                    subtitle = book.title,
-                    streamUrl = chapterUrl,
-                    // Playlist: from this chapter to end of book — useful for car listening
-                    playlistUrls = allUrls.drop(if (audio.intro != null) index + 1 else index),
-                ))
-            }
+        val introOffset = if (audio.intro != null) 1 else 0
+        return (startIndex..endIndex).map { index ->
+            val chapterNumber = index + 1
+            MediaContent(
+                id = "$bookId-ch-$chapterNumber",
+                title = context.getString(R.string.bible_chapter_label, chapterNumber),
+                streamUrl = audio.chapters[index],
+                // Playlist from this chapter to end of book — pick up where you left off
+                playlistUrls = allUrls.drop(introOffset + index),
+            )
         }
     }
+
+    private fun bookIdToBookNumber(bookId: String): Int? =
+        bookId.split("-").lastOrNull()?.toIntOrNull()
 
     private suspend fun loadBroadcastingContent(): List<MediaContent> {
         val programs = jwOrgRepository.getMonthlyPrograms()
