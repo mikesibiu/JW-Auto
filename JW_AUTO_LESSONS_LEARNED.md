@@ -45,7 +45,7 @@ Response structure: `files.E.MP3[]` — each item has:
 GET https://wol.jw.org/en/wol/d/r1/lp-e/<docid>
 ```
 Returns HTML. For MWB weekly pages, contains:
-- Header with week date and Bible book/chapter: `MARCH 9-15 ISAIAH 43`
+- Header with week date and Bible book/chapter range: `MARCH 9-15 ISAIAH 43-44` ← confirmed live format
 - Bible reading assignment: `Bible Reading (4 min.) Isa 44:9-20`
 - CBS content: `lfb lessons 68-69` or `lfb intro to section 11 and lessons 68-69`
 
@@ -79,8 +79,8 @@ Returns HTML. For MWB weekly pages, contains:
   `pub=lfb` returns all tracks with `label` like `"Lesson 68"`
 
 ### Bible Reading (NWT)
-- MWB header "MARCH 9-15 ISAIAH 43" gives start chapter (43)
-- Bible reading assignment "Isa 44:9-20" gives end chapter (44)
+- MWB header "MARCH 9-15 ISAIAH 43-44" gives full chapter range directly ← confirmed live format
+- Bible reading assignment "Isa 44:9-20" is a reliable fallback if header has no range
 - Combine → weekly range: Isaiah 43–44
 - Chapter → URL: `pub=nwt&issue=0` returns all Bible chapters;
   response keyed by book number, chapters array indexed 0-based
@@ -130,10 +130,10 @@ Never use track position/ordering — always match by lesson number.
 **Wrong approach**: tried to infer end chapter from the next week's start chapter
 (fragile — requires an extra network call, fails for last week of issue).
 
-**Right approach** (confirmed against live data):
-1. Parse `MARCH 9-15 ISAIAH 43` from page header → book=Isaiah, startCh=43
-2. Parse `Bible Reading (4 min.) Isa 44:9-20` from page body → endCh=44
-3. Combine → Isaiah 43–44
+**Right approach** (confirmed against live wol.jw.org pages):
+1. Parse `MARCH 9-15 ISAIAH 43-44` from page header → book=Isaiah, startCh=43, endCh=44
+2. Fallback: parse `Bible Reading (4 min.) Isa 44:9-20` from page body → endCh=44
+3. Last resort: next week's header startCh − 1
 
 The Bible reading assignment always cites the exact end chapter. This is reliable
 and requires no additional network requests.

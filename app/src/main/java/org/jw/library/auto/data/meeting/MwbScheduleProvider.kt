@@ -73,14 +73,27 @@ class MwbScheduleProvider(
 
     /**
      * Parse the header book+chapter from a wol.jw.org workbook week page.
-     * The section header looks like "MARCH 2-8 ISAIAH 41" — only start chapter.
-     * Returns (bookNumber, startChapter, null); end chapter comes from
-     * [parseBibleReadingEndChapter] or the consecutive-week fallback.
-     * Uses findAll so "MARCH 2-8" is skipped when "MARCH" is not a Bible book.
+     * The confirmed format is "MARCH 2-8 ISAIAH 41-42" — book with chapter range.
+     * Falls back to single-chapter "ISAIAH 41" if no range is found.
+     * Uses findAll so date tokens like "MARCH 2-8" are skipped (MARCH is not a book).
+     * Returns (bookNumber, startChapter, endChapter?) where endChapter is set when
+     * the header contains a range; otherwise [parseBibleReadingEndChapter] fills it.
      */
     internal fun parseHeaderChapter(html: String): Triple<Int, Int, Int?>? {
         val searchArea = html.take(3000)
-        // Find "BookName CH" — iterate all matches so date tokens like "MARCH 2" are skipped
+        // Primary: chapter-range "ISAIAH 41-42" — skip non-book matches like "MARCH 2-8"
+        for (match in Regex(
+            "([A-Za-z]+(?:\\s+[A-Za-z]+)?)\\s+(\\d+)[–-](\\d+)",
+            RegexOption.IGNORE_CASE
+        ).findAll(searchArea)) {
+            val book = BibleBooks.findByName(match.groupValues[1])
+            val startCh = match.groupValues[2].toIntOrNull()
+            val endCh = match.groupValues[3].toIntOrNull()
+            if (book != null && startCh != null && endCh != null && endCh > startCh) {
+                return Triple(book.number, startCh, endCh)
+            }
+        }
+        // Fallback: single chapter "ISAIAH 41"
         for (match in Regex(
             "([A-Za-z]+(?:\\s+[A-Za-z]+)?)\\s+(\\d+)(?::\\d+)?",
             RegexOption.IGNORE_CASE
@@ -139,12 +152,14 @@ class MwbScheduleProvider(
         val bookNum = headerInfo.first
         val startChapter = headerInfo.second
 
-        // Primary: extract end chapter from Bible reading assignment ("Isa 42:1-13" → 42)
+        // Prefer explicit header range ("ISAIAH 41-42"), then Bible reading line ("Isa 42:1-13"),
+        // then consecutive-week heuristic as last resort.
         val readingEndCh = parseBibleReadingEndChapter(thisHtml)
         val endChapter = when {
+            headerInfo.third != null -> headerInfo.third!!
             readingEndCh != null && readingEndCh >= startChapter -> readingEndCh
             else -> {
-                // Fallback: derive from next week's starting chapter − 1
+                // Last resort: derive from next week's starting chapter − 1
                 val nextDate = nextWeekStart(weekStart, weekDocids)
                 val nextStart = if (nextDate != null) {
                     val nextDocid = weekDocids.firstOrNull { it.first == nextDate }?.second

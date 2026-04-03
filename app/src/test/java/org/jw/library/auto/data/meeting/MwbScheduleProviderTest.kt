@@ -51,21 +51,31 @@ class MwbScheduleProviderTest {
     // ── parseHeaderChapter ────────────────────────────────────────────────────
 
     @Test
-    fun `parseHeaderChapter extracts Isaiah start chapter from date header`() {
-        // wol.jw.org style: "MARCH 2-8 ISAIAH 41"
-        val html = "MARCH 2-8 ISAIAH 41"
+    fun `parseHeaderChapter extracts chapter range from confirmed wol format`() {
+        // Confirmed live format: "MARCH 2-8 ISAIAH 41-42"
+        val html = "MARCH 2-8 ISAIAH 41-42"
         val result = provider.parseHeaderChapter(html)!!
-        assertEquals(23, result.first)  // Isaiah
-        assertEquals(41, result.second)
-        assertNull(result.third)
+        assertEquals(23, result.first)   // Isaiah
+        assertEquals(41, result.second)  // start
+        assertEquals(42, result.third)   // end — from header directly
     }
 
     @Test
-    fun `parseHeaderChapter skips MARCH date token and finds ISAIAH`() {
-        val html = "MARCH 9-15 ISAIAH 43 some content"
+    fun `parseHeaderChapter skips MARCH date token and finds ISAIAH range`() {
+        val html = "MARCH 9-15 ISAIAH 43-44 some content"
         val result = provider.parseHeaderChapter(html)!!
         assertEquals(23, result.first)
         assertEquals(43, result.second)
+        assertEquals(44, result.third)
+    }
+
+    @Test
+    fun `parseHeaderChapter falls back to single chapter when no range`() {
+        val html = "MARCH 2-8 ISAIAH 41 some content without range"
+        val result = provider.parseHeaderChapter(html)!!
+        assertEquals(23, result.first)
+        assertEquals(41, result.second)
+        assertNull(result.third)
     }
 
     @Test
@@ -95,7 +105,37 @@ class MwbScheduleProviderTest {
     // ── Integration: header + reading end chapter ─────────────────────────────
 
     @Test
-    fun `full week March 2-8 parses start 41 end 42`() {
+    fun `full week March 2-8 header range takes priority over reading line`() {
+        // Confirmed live format: header has "ISAIAH 41-42"; reading line has "Isa 42:1-13"
+        val html = """
+            MARCH 2-8 ISAIAH 41-42
+            Congregation Bible Study (30 min.) lfb lessons 66-67 Concluding
+            Bible Reading (4 min.) Isa 42:1-13 ( th study 11 )
+        """.trimIndent()
+        val header = provider.parseHeaderChapter(html)!!
+        assertEquals(23, header.first)   // Isaiah
+        assertEquals(41, header.second)  // start from header
+        assertEquals(42, header.third)   // end from header — no fallback needed
+        assertEquals(listOf(66, 67), provider.parseCbsLessons(html))
+    }
+
+    @Test
+    fun `full week March 9-15 header range takes priority`() {
+        val html = """
+            MARCH 9-15 ISAIAH 43-44
+            Congregation Bible Study (30 min.) lfb intro to section 11 and lessons 68-69 Concluding
+            Bible Reading (4 min.) Isa 44:9-20 ( th study 10 )
+        """.trimIndent()
+        val header = provider.parseHeaderChapter(html)!!
+        assertEquals(23, header.first)
+        assertEquals(43, header.second)
+        assertEquals(44, header.third)
+        assertEquals(listOf(68, 69), provider.parseCbsLessons(html))
+    }
+
+    @Test
+    fun `reading line is used when header has no range`() {
+        // Fallback: header only has single chapter, reading line provides end
         val html = """
             MARCH 2-8 ISAIAH 41
             Congregation Bible Study (30 min.) lfb lessons 66-67 Concluding
@@ -103,24 +143,8 @@ class MwbScheduleProviderTest {
         """.trimIndent()
         val header = provider.parseHeaderChapter(html)!!
         val endCh = provider.parseBibleReadingEndChapter(html)
-        assertEquals(23, header.first)   // Isaiah
-        assertEquals(41, header.second)  // start
-        assertEquals(42, endCh)          // end
-        assertEquals(listOf(66, 67), provider.parseCbsLessons(html))
-    }
-
-    @Test
-    fun `full week March 9-15 parses start 43 end 44`() {
-        val html = """
-            MARCH 9-15 ISAIAH 43
-            Congregation Bible Study (30 min.) lfb intro to section 11 and lessons 68-69 Concluding
-            Bible Reading (4 min.) Isa 44:9-20 ( th study 10 )
-        """.trimIndent()
-        val header = provider.parseHeaderChapter(html)!!
-        val endCh = provider.parseBibleReadingEndChapter(html)
-        assertEquals(23, header.first)
-        assertEquals(43, header.second)
-        assertEquals(44, endCh)
-        assertEquals(listOf(68, 69), provider.parseCbsLessons(html))
+        assertEquals(41, header.second)
+        assertNull(header.third)          // no range in header
+        assertEquals(42, endCh)           // but reading line gives us 42
     }
 }
