@@ -217,4 +217,78 @@ Verification URL pattern: `https://wol.jw.org/en/wol/d/r1/lp-e/<docid>`
 
 ---
 
+---
+
+## 10. Bible Dramas
+
+### Source
+Bible Dramas come from the **Mediator API**, not the pub-media endpoint:
+```
+GET https://data.jw-cdn.org/catalogs/media/{lang}/categories/VOXDramas?detailed=1
+```
+- `{lang}` = `E` for English, `M` for Romanian (same codes as pub-media)
+- Returns a JSON object: `{ "category": { "media": [ … ] } }`
+- Each item has `guid`, `title`, `firstPublished`, `files[]`
+- Each file has `label` (quality: "240p", "360p", …) and `progressiveDownloadURL`
+
+### iOS/CarPlay equivalent
+```swift
+// URLSession call
+let url = URL(string: "https://data.jw-cdn.org/catalogs/media/\(lang)/categories/VOXDramas?detailed=1")!
+// Decode into:
+struct MediatorResponse: Decodable {
+    let category: MediatorCategory?
+}
+struct MediatorCategory: Decodable {
+    let media: [MediatorItem]?
+}
+struct MediatorItem: Decodable {
+    let guid: String?
+    let title: String?
+    let firstPublished: String?
+    let files: [MediatorFile]?
+}
+struct MediatorFile: Decodable {
+    let label: String?
+    let progressiveDownloadURL: String?
+}
+// Pick smallest quality for audio-only playback:
+let url = item.files?.first(where: { $0.label == "240p" })?.progressiveDownloadURL
+         ?? item.files?.first?.progressiveDownloadURL
+```
+
+### Fallback (HTML scraping)
+If the Mediator API returns empty, fall back to scraping the drama page. The page embeds a
+`<script id="__NEXT_DATA__" type="application/json">` block. Parse the JSON at:
+```
+props → pageProps → listData → files[]
+```
+Each entry has `title` (String) and `fileUrl` (String). Use `fileUrl` as the stream URL.
+
+**Android path:** `https://www.jw.org/en/library/videos/#en/categories/VODDramatizations`
+**iOS path:** same URL, swap `/en/` to `/ro/` for Romanian.
+
+### Menu placement
+Dramas sit as the **first item** inside the "JW Broadcasting" folder, as a browsable sub-folder
+called "Bible Dramas" (EN) / "Drame Biblice" (RO). Individual dramas are playable leaves.
+
+### Key lesson
+The Mediator API also serves Monthly Programs (`StudioMonthlyPrograms`) and GB Updates
+(`StudioNewsReports`) using the same JSON structure. Reuse the same decoder.
+
+---
+
+## 11. Romanian Language Support
+
+See `JW_AUTO_LESSONS_LEARNED_RO.md` for the full detail. Summary for iOS port:
+
+- Romanian lang code: **`M`** (pass as `langwritten=M&txtCMSLang=M` to pub-media; as path
+  segment `/M/` in the Mediator URL)
+- Meeting Workbook (`pub=mwb`) has no Romanian audio — fall back to English silently
+- Watchtower track titles use day-first format: `(2-8 martie)` vs English `(March 2-8)` —
+  match with: `\((?:[A-Za-z]+ )?{day}[^0-9]`
+- Store a user preference (`UserDefaults` on iOS) with auto-detect from `Locale.current.language`
+- All cache keys must be namespaced by lang: `"\(lang):\(contentType):\(weekStart)"`
+- On language toggle: clear in-memory caches, reload the entire browse tree
+
 *Generated from Android Auto implementation — April 2026*
