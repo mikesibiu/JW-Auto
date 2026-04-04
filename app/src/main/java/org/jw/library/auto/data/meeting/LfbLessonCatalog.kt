@@ -19,11 +19,12 @@ import java.util.concurrent.TimeUnit
  */
 class LfbLessonCatalog(
     private val context: Context,
-    private val api: JWOrgApiService = ApiClient.jwOrgApi
+    private val api: JWOrgApiService = ApiClient.jwOrgApi,
+    private val langCode: String = "E"
 ) {
     data class LessonInfo(val number: Int, val title: String, val url: String)
 
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences("${PREFS}_$langCode", Context.MODE_PRIVATE)
 
     fun lessonInfoFor(filename: String): LessonInfo? = loadMap()[filename]
 
@@ -58,7 +59,7 @@ class LfbLessonCatalog(
 
     private suspend fun fetchFromApi(): Map<String, LessonInfo> {
         val map = mutableMapOf<String, LessonInfo>()
-        val resp = api.getPublicationMedia(pub = "lfb")
+        val resp = api.getPublicationMedia(pub = "lfb", langwritten = langCode, txtCMSLang = langCode)
         val files = resp.files?.values?.flatMap { (it.mp3Files.orEmpty() + it.aacFiles.orEmpty()) }.orEmpty()
         files.forEach { f ->
             val url = f.file?.url ?: return@forEach

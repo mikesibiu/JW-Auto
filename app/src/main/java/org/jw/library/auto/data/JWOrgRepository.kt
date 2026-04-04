@@ -57,11 +57,25 @@ class JWOrgRepository(
     private val songDao by lazy { ContentDatabase.getDatabase(context).songDao() }
     private val meetingSectionsProvider by lazy { MeetingSectionsProvider(context) }
     private val mwbScheduleProvider by lazy { MwbScheduleProvider(context, apiService) }
-    private val lfbLessonCatalog by lazy { LfbLessonCatalog(context, apiService) }
+    // One LfbLessonCatalog per language — created on demand
+    private val lfbCatalogByLang = mutableMapOf<String, LfbLessonCatalog>()
+    private fun lfbCatalog(lang: String = langCode) =
+        lfbCatalogByLang.getOrPut(lang) { LfbLessonCatalog(context, apiService, lang) }
+
+    /** Active content language code derived from user preference / device locale. */
+    val langCode: String get() = LanguagePreference.get(context)
 
     data class BibleBookAudio(val intro: String?, val chapters: List<String>)
 
     @Volatile private var bibleCatalog: Map<Int, BibleBookAudio>? = null
+    @Volatile private var bibleCatalogLang: String? = null
+
+    /** Clear in-memory caches that are language-specific (called after language toggle). */
+    fun clearLanguageCaches() {
+        bibleCatalog = null
+        bibleCatalogLang = null
+        lfbCatalogByLang.clear()
+    }
 
     companion object {
         private const val TAG = "JWOrgRepository"
@@ -89,28 +103,31 @@ class JWOrgRepository(
      * Each week within an issue is a separate track, so we calculate the
      * issue year-month and the 1-based track number from the week date.
      */
+    private suspend fun fetchWorkbookUrl(issue: String, track: Int, lang: String): String? =
+        try {
+            apiService.getPublicationMedia(pub = PUB_WORKBOOK, issue = issue, track = track,
+                langwritten = lang, txtCMSLang = lang)
+                .files?.values?.firstOrNull()?.mp3Files?.firstOrNull()?.file?.url
+        } catch (_: Exception) { null }
+
     suspend fun getMeetingWorkbookUrl(weekStart: LocalDate): String {
         val weekStartStr = weekStart.toString()
-        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WORKBOOK, weekStartStr)
 
+        val lang = langCode
+        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WORKBOOK, weekStartStr, lang)
         val cached = contentDao.getByKey(cacheKey)
         if (cached != null && !cached.isExpired()) {
-            Log.d(TAG, "Cache hit for workbook $weekStart")
+            Log.d(TAG, "Cache hit for workbook $weekStart [$lang]")
             return cached.url ?: fallbackWorkbookUrl(weekStart)
         }
 
         return try {
             val issueYearMonth = workbookIssueYearMonth(weekStart)
             val track = workbookTrack(weekStart)
-            Log.d(TAG, "Fetching workbook $weekStart — issue=$issueYearMonth track=$track")
-            val response = apiService.getPublicationMedia(
-                pub = PUB_WORKBOOK,
-                issue = issueYearMonth,
-                track = track
-            )
-            val url = response.files?.values?.firstOrNull()
-                ?.mp3Files?.firstOrNull()
-                ?.file?.url
+            Log.d(TAG, "Fetching workbook $weekStart — issue=$issueYearMonth track=$track lang=$lang")
+            // Try requested language first; Romanian MWB may not be published — fall back to English
+            val url = fetchWorkbookUrl(issueYearMonth, track, lang)
+                ?: fetchWorkbookUrl(issueYearMonth, track, LanguagePreference.LANG_ENGLISH)
                 ?: fallbackWorkbookUrl(weekStart)
             cacheUrl(cacheKey, CachedContent.TYPE_WORKBOOK, weekStartStr, url, weekStart)
             url
@@ -155,51 +172,53 @@ class JWOrgRepository(
      */
     suspend fun getWatchtowerUrl(weekStart: LocalDate): String {
         val weekStartStr = weekStart.toString()
-        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WATCHTOWER, weekStartStr)
+        val lang = langCode
+        val cacheKey = CachedContent.cacheKey(CachedContent.TYPE_WATCHTOWER, weekStartStr, lang)
 
         val cached = contentDao.getByKey(cacheKey)
         if (cached != null && !cached.isExpired()) {
-            Log.d(TAG, "Cache hit for watchtower $weekStart")
+            Log.d(TAG, "Cache hit for watchtower $weekStart [$lang]")
             return cached.url ?: fallbackWatchtowerUrl(weekStart)
         }
 
         // Dynamic: find WT issue ~2 months before, match track title to this week
-        val dynamicUrl = fetchWatchtowerDynamic(weekStart)
+        val dynamicUrl = fetchWatchtowerDynamic(weekStart, lang)
         if (dynamicUrl != null) {
-            Log.d(TAG, "Dynamic Watchtower resolved for $weekStart")
+            Log.d(TAG, "Dynamic Watchtower resolved for $weekStart [$lang]")
             cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, dynamicUrl, weekStart)
             return dynamicUrl
         }
 
-        // Override map safety net (covers through 2026-04-27)
-        val overrideUrl = JWOrgContentUrls.watchtowerOverrideUrl(weekStart)
-        if (overrideUrl != null) {
-            Log.d(TAG, "Using Watchtower override for $weekStart")
-            cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, overrideUrl, weekStart)
-            return overrideUrl
+        // Override map safety net — English only (Romanian uses dynamic only)
+        if (lang == LanguagePreference.LANG_ENGLISH) {
+            val overrideUrl = JWOrgContentUrls.watchtowerOverrideUrl(weekStart)
+            if (overrideUrl != null) {
+                Log.d(TAG, "Using Watchtower override for $weekStart")
+                cacheUrl(cacheKey, CachedContent.TYPE_WATCHTOWER, weekStartStr, overrideUrl, weekStart)
+                return overrideUrl
+            }
         }
 
         if (cached != null) return cached.url ?: fallbackWatchtowerUrl(weekStart)
         return fallbackWatchtowerUrl(weekStart)
     }
 
-    private suspend fun fetchWatchtowerDynamic(weekStart: LocalDate): String? {
-        val month = weekStart.monthValue
+    private suspend fun fetchWatchtowerDynamic(weekStart: LocalDate, lang: String): String? {
         val day = weekStart.dayOfMonth
-        val monthName = DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH).format(weekStart)
-        // Title contains "(March 9-15)" — match month+day followed by non-digit to avoid
-        // "March 9" matching "March 19"
-        val pattern = Regex("\\($monthName $day[^0-9]")
+        // Language-agnostic: EN titles use "(March 2-8)", RO titles use "(2-8 martie)"
+        // Both contain the day number right after "(" or after "MonthName " — match either.
+        val pattern = Regex("\\((?:[A-Za-z]+ )?$day[^0-9]")
 
         for (monthsBack in 2..3) {
             val issueDate = weekStart.minusMonths(monthsBack.toLong())
             val issue = yearMonthFormat.format(issueDate)
             try {
-                val response = apiService.getPublicationMedia(pub = PUB_WATCHTOWER, issue = issue)
+                val response = apiService.getPublicationMedia(pub = PUB_WATCHTOWER, issue = issue,
+                    langwritten = lang, txtCMSLang = lang)
                 val tracks = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
                 val url = tracks.firstOrNull { pattern.containsMatchIn(it.title ?: "") }?.file?.url
                 if (url != null) {
-                    Log.d(TAG, "Watchtower for $weekStart found in issue $issue")
+                    Log.d(TAG, "Watchtower for $weekStart found in issue $issue [$lang]")
                     return url
                 }
             } catch (e: Exception) {
@@ -264,7 +283,7 @@ class JWOrgRepository(
             else -> "lfb ${lessonNumbers.first()}–${lessonNumbers.last()}"
         }
         val remapped = try {
-            val resolved = lfbLessonCatalog.urlsForLessonNumbers(lessonNumbers)
+            val resolved = lfbCatalog(langCode).urlsForLessonNumbers(lessonNumbers)
             if (resolved.size == lessonNumbers.size) resolved else emptyList()
         } catch (_: Throwable) { emptyList() }
 
@@ -277,7 +296,8 @@ class JWOrgRepository(
         return try {
             val schedule = mwbScheduleProvider.getSchedule(weekStart) ?: return emptyList()
             if (schedule.cbsLessons.isEmpty()) return emptyList()
-            val resolved = lfbLessonCatalog.urlsForLessonNumbers(schedule.cbsLessons)
+            val lang = langCode
+            val resolved = lfbCatalog(lang).urlsForLessonNumbers(schedule.cbsLessons)
             if (resolved.size == schedule.cbsLessons.size) resolved else emptyList()
         } catch (t: Throwable) {
             Log.w(TAG, "Dynamic CBS fetch failed for $weekStart", t)
@@ -369,12 +389,15 @@ class JWOrgRepository(
     }
 
     private suspend fun ensureBibleCatalog(): Map<Int, BibleBookAudio> {
-        bibleCatalog?.let { return it }
+        val lang = langCode
+        if (bibleCatalog != null && bibleCatalogLang == lang) return bibleCatalog!!
         return try {
-            val response = apiService.getPublicationMedia(pub = PUB_BIBLE)
+            val response = apiService.getPublicationMedia(pub = PUB_BIBLE,
+                langwritten = lang, txtCMSLang = lang)
             val mp3Files = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
             val grouped = BibleAudioParser.groupByBook(mp3Files)
             bibleCatalog = grouped
+            bibleCatalogLang = lang
             grouped
         } catch (e: Exception) {
             Log.w(TAG, "Failed to build Bible catalog", e)
@@ -383,21 +406,22 @@ class JWOrgRepository(
     }
 
     suspend fun getKingdomSongs(forceRefresh: Boolean = false): List<KingdomSong> {
-        val cached = songDao.getAllSongs()
+        val lang = langCode
+        val cached = songDao.getSongsByLanguage(lang)
         val now = System.currentTimeMillis()
         val stale = cached.isEmpty() || now - cached.minOf { it.fetchedAt } > SONG_CACHE_TTL_MILLIS
         if (cached.isNotEmpty() && !forceRefresh && !stale) {
-            Log.d(TAG, "Using cached kingdom songs (${cached.size})")
+            Log.d(TAG, "Using cached kingdom songs (${cached.size}) [$lang]")
             return cached.toDomain()
         }
 
         return try {
-            val songs = fetchSongsFromApi()
+            val songs = fetchSongsFromApi(lang)
             if (songs.isNotEmpty()) {
-                persistSongs(songs, now)
+                persistSongs(songs, now, lang)
                 songs
             } else {
-                Log.w(TAG, "JW.org returned no kingdom songs; falling back to cache")
+                Log.w(TAG, "JW.org returned no kingdom songs [$lang]; falling back to cache")
                 cached.toDomain()
             }
         } catch (e: Exception) {
@@ -406,8 +430,9 @@ class JWOrgRepository(
         }
     }
 
-    private suspend fun fetchSongsFromApi(): List<KingdomSong> {
-        val response = apiService.getPublicationMedia(pub = PUB_SONGBOOK)
+    private suspend fun fetchSongsFromApi(lang: String): List<KingdomSong> {
+        val response = apiService.getPublicationMedia(pub = PUB_SONGBOOK,
+            langwritten = lang, txtCMSLang = lang)
         val mp3Files = response.files?.values?.flatMap { it.mp3Files.orEmpty() }.orEmpty()
         return mp3Files.mapNotNull { file ->
             val url = file.file?.url ?: return@mapNotNull null
@@ -419,19 +444,19 @@ class JWOrgRepository(
         }.sortedBy { it.number }
     }
 
-    private suspend fun persistSongs(songs: List<KingdomSong>, fetchedAt: Long) {
+    private suspend fun persistSongs(songs: List<KingdomSong>, fetchedAt: Long, lang: String) {
         val cachedSongs = songs.map { song ->
             CachedSong(
                 number = song.number,
                 title = song.title,
                 url = song.url,
-                language = "E",
+                language = lang,
                 fetchedAt = fetchedAt
             )
         }
-        songDao.deleteAll()
+        songDao.deleteSongsByLanguage(lang)
         songDao.insertAll(cachedSongs)
-        Log.d(TAG, "Cached ${songs.size} kingdom songs")
+        Log.d(TAG, "Cached ${songs.size} kingdom songs [$lang]")
     }
 
     private fun parseTrackNumber(file: MediaFile): Int? {

@@ -34,9 +34,9 @@ data class CachedContent(
         const val TTL_FUTURE_MILLIS = 35L * 24 * 60 * 60 * 1000  // 5 weeks
         const val TTL_PAST_MILLIS = 45L * 24 * 60 * 60 * 1000   // ~6.5 weeks
 
-        fun cacheKey(contentType: String, weekStart: String): String {
-            return "$contentType:$weekStart"
-        }
+        /** Language-namespaced key so EN and RO content coexist in cache. */
+        fun cacheKey(contentType: String, weekStart: String, lang: String = "E"): String =
+            "$lang:$contentType:$weekStart"
     }
 
     fun isExpired(): Boolean {

@@ -17,6 +17,7 @@ class ContentRepository(
 
     companion object {
         const val ROOT_ID = "root"
+        const val LANG_TOGGLE_ID = "lang-toggle"
         private const val CATEGORY_WEEKLY_MEETINGS = "weekly_meetings"
         const val CATEGORY_THIS_WEEK = "this_week"
         const val CATEGORY_LAST_WEEK = "last_week"
@@ -37,8 +38,15 @@ class ContentRepository(
 
     suspend fun clearCacheIfVersionChanged() = jwOrgRepository.clearCacheIfVersionChanged()
 
+    fun clearLanguageCaches() = jwOrgRepository.clearLanguageCaches()
+
     suspend fun getChildren(parentId: String): List<MediaContent> = when {
         parentId == ROOT_ID -> listOf(
+            MediaContent(
+                id = LANG_TOGGLE_ID,
+                title = LanguagePreference.toggleLabel(context),
+                isBrowsable = false,
+            ),
             category(CATEGORY_WEEKLY_MEETINGS, R.string.category_weekly_meetings),
             category(CATEGORY_BIBLE_AND_SONGS, R.string.category_bible_and_songs),
             category(CATEGORY_BROADCASTING, R.string.category_broadcasting),

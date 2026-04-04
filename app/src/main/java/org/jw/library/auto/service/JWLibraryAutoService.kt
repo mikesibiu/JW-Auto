@@ -11,6 +11,7 @@ import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import org.jw.library.auto.background.ContentSyncScheduler
 import org.jw.library.auto.data.ContentRepository
+import org.jw.library.auto.data.LanguagePreference
 import org.jw.library.auto.data.PlaybackPositionRepository
 import org.jw.library.auto.playback.PlaybackManager
 import java.util.ArrayList
@@ -52,34 +53,40 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
                 }
             },
             onPlayFromMediaId = { mediaId, extras ->
-                // Re-fetch fresh URLs from contentRepository rather than trusting the
-                // potentially stale URL cached by the Android Auto Gearhead app.
-                val parentId = when {
-                    mediaId.startsWith("this-") -> ContentRepository.CATEGORY_THIS_WEEK
-                    mediaId.startsWith("last-") -> ContentRepository.CATEGORY_LAST_WEEK
-                    mediaId.startsWith("next-") -> ContentRepository.CATEGORY_NEXT_WEEK
-                    else -> null
-                }
-                serviceScope.launch {
-                    val content = if (parentId != null) {
-                        withContext(Dispatchers.IO) { contentRepository.getChildren(parentId) }
-                            .find { it.id == mediaId }
-                    } else null
+                if (mediaId == ContentRepository.LANG_TOGGLE_ID) {
+                    LanguagePreference.toggle(this@JWLibraryAutoService)
+                    contentRepository.clearLanguageCaches()
+                    notifyChildrenChanged(ContentRepository.ROOT_ID)
+                } else {
+                    // Re-fetch fresh URLs from contentRepository rather than trusting the
+                    // potentially stale URL cached by the Android Auto Gearhead app.
+                    val parentId = when {
+                        mediaId.startsWith("this-") -> ContentRepository.CATEGORY_THIS_WEEK
+                        mediaId.startsWith("last-") -> ContentRepository.CATEGORY_LAST_WEEK
+                        mediaId.startsWith("next-") -> ContentRepository.CATEGORY_NEXT_WEEK
+                        else -> null
+                    }
+                    serviceScope.launch {
+                        val content = if (parentId != null) {
+                            withContext(Dispatchers.IO) { contentRepository.getChildren(parentId) }
+                                .find { it.id == mediaId }
+                        } else null
 
-                    if (content != null) {
-                        val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
-                        playbackManager.play(content, lastPosition)
-                    } else {
-                        // Not a weekly content ID — fall back to extras URL
-                        val title = extras?.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE) ?: mediaId
-                        val playlist = extras?.getStringArrayList(PlaybackManager.KEY_PLAYLIST)
-                        val uri = extras?.getString(PlaybackManager.KEY_STREAM_URI)
-                        val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
-                        when {
-                            !playlist.isNullOrEmpty() ->
-                                playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, playlistUrls = playlist), lastPosition)
-                            uri != null ->
-                                playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, streamUrl = uri), lastPosition)
+                        if (content != null) {
+                            val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
+                            playbackManager.play(content, lastPosition)
+                        } else {
+                            // Not a weekly content ID — fall back to extras URL
+                            val title = extras?.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE) ?: mediaId
+                            val playlist = extras?.getStringArrayList(PlaybackManager.KEY_PLAYLIST)
+                            val uri = extras?.getString(PlaybackManager.KEY_STREAM_URI)
+                            val lastPosition = extras?.getLong(PlaybackManager.KEY_LAST_POSITION, 0L) ?: 0L
+                            when {
+                                !playlist.isNullOrEmpty() ->
+                                    playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, playlistUrls = playlist), lastPosition)
+                                uri != null ->
+                                    playbackManager.play(org.jw.library.auto.data.model.MediaContent(id = mediaId, title = title, streamUrl = uri), lastPosition)
+                            }
                         }
                     }
                 }
