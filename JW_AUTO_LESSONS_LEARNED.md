@@ -278,6 +278,65 @@ Each entry has `title` (String) and `fileUrl` (String).
 Dramas are the **first item** inside the "JW Broadcasting" folder, as a browsable sub-folder
 called "Bible Dramas" (EN) / "Drame Biblice" (RO). Individual dramas are playable leaves.
 
+### How to add Bible Dramas to iOS (step by step)
+
+The iOS app already has `getMonthlyPrograms()` and `getGoverningBodyUpdates()` working against
+the same Mediator API — Bible Dramas use the exact same code path, just a different category key.
+
+**Step 1 — Add the fetch function** (parallel to `getMonthlyPrograms`):
+```swift
+func getBibleDramas() async -> [BroadcastingItem] {
+    // First try Mediator API
+    let lang = LanguagePreference.current  // "E" or "M"
+    // ⚠️ Verify "VOXDramas" against live API — may differ from Android
+    let url = URL(string: "https://b.jw-cdn.org/apis/mediator/v1/categories/\(lang)/VOXDramas?detailed=1")!
+    if let items = try? await fetchMediatorCategory(url: url), !items.isEmpty {
+        return items
+    }
+    // Fallback: scrape __NEXT_DATA__ from drama page (see HTML fallback section above)
+    return await scrapeDramaPage(lang: lang)
+}
+```
+
+**Step 2 — Add a "Bible Dramas" node to the broadcasting branch** of your `CPListTemplate`
+builder. In the function that builds Broadcasting children, prepend a browsable row:
+```swift
+// Before the monthly programs rows:
+let dramasRow = CPListItem(text: lang == "M" ? "Drame Biblice" : "Bible Dramas",
+                           detailText: nil)
+dramasRow.handler = { _, completion in
+    self.pushDramasTemplate()
+    completion()
+}
+```
+
+**Step 3 — Build the dramas list template**:
+```swift
+func pushDramasTemplate() {
+    Task {
+        let dramas = await getBibleDramas()
+        let items = dramas.map { drama -> CPListItem in
+            let item = CPListItem(text: drama.title, detailText: nil)
+            item.handler = { _, completion in
+                self.play(url: drama.streamUrl)
+                completion()
+            }
+            return item
+        }
+        let section = CPListSection(items: items)
+        let template = CPListTemplate(title: "Bible Dramas", sections: [section])
+        self.interfaceController?.pushTemplate(template, animated: true)
+    }
+}
+```
+
+**Step 4 — Verify the category key** by hitting the URL in a browser or curl before shipping:
+```
+curl "https://b.jw-cdn.org/apis/mediator/v1/categories/E/VOXDramas?detailed=1" | python3 -m json.tool | head -30
+```
+If it returns items, `VOXDramas` is valid. If empty or 404, browse the categories endpoint to
+find the correct key.
+
 ---
 
 ## 11. Romanian Language Support
