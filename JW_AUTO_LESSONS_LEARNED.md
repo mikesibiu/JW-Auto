@@ -221,21 +221,31 @@ Verification URL pattern: `https://wol.jw.org/en/wol/d/r1/lp-e/<docid>`
 
 ## 10. Bible Dramas
 
-### Source
-Bible Dramas come from the **Mediator API**, not the pub-media endpoint:
-```
-GET https://data.jw-cdn.org/catalogs/media/{lang}/categories/VOXDramas?detailed=1
-```
-- `{lang}` = `E` for English, `M` for Romanian (same codes as pub-media)
-- Returns a JSON object: `{ "category": { "media": [ … ] } }`
-- Each item has `guid`, `title`, `firstPublished`, `files[]`
-- Each file has `label` (quality: "240p", "360p", …) and `progressiveDownloadURL`
+### Status
+**Android:** implemented and live in the menu (v1.0.5).
+**iOS:** not yet implemented — this section describes the Android approach as a reference.
 
-### iOS/CarPlay equivalent
+### Mediator API (correct base URL)
+Bible Dramas come from the **Mediator API**, not the pub-media endpoint. The correct base URL
+(confirmed from Android `MediatorApiClient.kt`) is:
+```
+GET https://b.jw-cdn.org/apis/mediator/v1/categories/{lang}/{category}?detailed=1
+```
+- `{lang}` = `E` for English, `M` for Romanian
+- Android uses category key `VOXDramas` — **this key should be verified against the live
+  Mediator v1 endpoint before use in iOS**, as category names may differ across API versions
+- Same JSON shape as `StudioMonthlyPrograms` / `StudioNewsReports` (reuse the same decoder)
+
+### Response shape
+```
+{ "category": { "media": [ … ] } }
+```
+Each item has `guid`, `title`, `firstPublished`, `files[]`.
+Each file has `label` ("240p", "360p", …) and `progressiveDownloadURL`.
+Pick `"240p"` for audio-only playback (smallest).
+
+### Swift Decodable models (same struct reused for all Mediator categories)
 ```swift
-// URLSession call
-let url = URL(string: "https://data.jw-cdn.org/catalogs/media/\(lang)/categories/VOXDramas?detailed=1")!
-// Decode into:
 struct MediatorResponse: Decodable {
     let category: MediatorCategory?
 }
@@ -252,9 +262,6 @@ struct MediatorFile: Decodable {
     let label: String?
     let progressiveDownloadURL: String?
 }
-// Pick smallest quality for audio-only playback:
-let url = item.files?.first(where: { $0.label == "240p" })?.progressiveDownloadURL
-         ?? item.files?.first?.progressiveDownloadURL
 ```
 
 ### Fallback (HTML scraping)
@@ -263,18 +270,13 @@ If the Mediator API returns empty, fall back to scraping the drama page. The pag
 ```
 props → pageProps → listData → files[]
 ```
-Each entry has `title` (String) and `fileUrl` (String). Use `fileUrl` as the stream URL.
+Each entry has `title` (String) and `fileUrl` (String).
 
-**Android path:** `https://www.jw.org/en/library/videos/#en/categories/VODDramatizations`
-**iOS path:** same URL, swap `/en/` to `/ro/` for Romanian.
+**Android drama page:** `https://www.jw.org/en/library/videos/#en/categories/VODDramatizations`
 
-### Menu placement
-Dramas sit as the **first item** inside the "JW Broadcasting" folder, as a browsable sub-folder
+### Menu placement (Android pattern, to replicate in iOS)
+Dramas are the **first item** inside the "JW Broadcasting" folder, as a browsable sub-folder
 called "Bible Dramas" (EN) / "Drame Biblice" (RO). Individual dramas are playable leaves.
-
-### Key lesson
-The Mediator API also serves Monthly Programs (`StudioMonthlyPrograms`) and GB Updates
-(`StudioNewsReports`) using the same JSON structure. Reuse the same decoder.
 
 ---
 
@@ -285,8 +287,11 @@ See `JW_AUTO_LESSONS_LEARNED_RO.md` for the full detail. Summary for iOS port:
 - Romanian lang code: **`M`** (pass as `langwritten=M&txtCMSLang=M` to pub-media; as path
   segment `/M/` in the Mediator URL)
 - Meeting Workbook (`pub=mwb`) has no Romanian audio — fall back to English silently
-- Watchtower track titles use day-first format: `(2-8 martie)` vs English `(March 2-8)` —
-  match with: `\((?:[A-Za-z]+ )?{day}[^0-9]`
+- Watchtower track titles use day-first format: `(2-8 martie)` vs English `(March 2-8)`.
+  **Android regex** (language-agnostic, matches both): `\((?:[A-Za-z]+ )?{day}[^0-9]`
+  **iOS regex** (confirmed in WeeklySchedule.swift): `\({day}[^0-9].*{romanianMonthName}`
+  — the iOS pattern anchors on both the leading day number AND the Romanian month name to
+  avoid false positives. Use whichever form matches your implementation.
 - Store a user preference (`UserDefaults` on iOS) with auto-detect from `Locale.current.language`
 - All cache keys must be namespaced by lang: `"\(lang):\(contentType):\(weekStart)"`
 - On language toggle: clear in-memory caches, reload the entire browse tree
