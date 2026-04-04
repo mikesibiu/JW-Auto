@@ -31,6 +31,7 @@ class ContentRepository(
         const val CATEGORY_HEBREW_SCRIPTURES = "hebrew_scriptures"
         const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
         private const val CATEGORY_BROADCASTING = "broadcasting"
+        private const val CATEGORY_DRAMAS = "dramas"
         private val BIBLE_BOOK_ID_REGEX = Regex("bible-(hebrew|greek)-\\d+")
         private const val CHAPTER_GROUP_PREFIX = "-cg-"
         private const val CHAPTER_GROUP_SIZE = 10
@@ -92,6 +93,7 @@ class ContentRepository(
         }
 
         parentId == CATEGORY_BROADCASTING -> loadBroadcastingContent()
+        parentId == CATEGORY_DRAMAS -> loadDramasContent()
 
         else -> emptyList()
     }
@@ -277,8 +279,11 @@ class ContentRepository(
                 )
             }
 
+        val dramasFolder = category(CATEGORY_DRAMAS, R.string.category_dramas)
+
         if (combined.isEmpty()) {
             return listOf(
+                dramasFolder,
                 MediaContent(
                     id = "jwb-unavailable",
                     title = localizedContext().getString(R.string.error_content_unavailable),
@@ -286,7 +291,27 @@ class ContentRepository(
                 )
             )
         }
-        return combined
+        return listOf(dramasFolder) + combined
+    }
+
+    private suspend fun loadDramasContent(): List<MediaContent> {
+        val dramas = jwOrgRepository.getBibleDramas()
+        if (dramas.isEmpty()) {
+            return listOf(
+                MediaContent(
+                    id = "dramas-unavailable",
+                    title = localizedContext().getString(R.string.error_content_unavailable),
+                    streamUrl = SAMPLE_AUDIO,
+                )
+            )
+        }
+        return dramas.map { drama ->
+            MediaContent(
+                id = drama.id,
+                title = drama.title,
+                streamUrl = drama.streamUrl,
+            )
+        }
     }
 
     private fun category(id: String, @StringRes title: Int) = MediaContent(

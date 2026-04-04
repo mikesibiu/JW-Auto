@@ -16,6 +16,7 @@
     <string name="category_hebrew_scriptures">Hebrew Scriptures</string>
     <string name="category_greek_scriptures">Greek Scriptures</string>
     <string name="category_broadcasting">JW Broadcasting</string>
+    <string name="category_dramas">Bible Dramas</string>
 
     <!-- Meeting Content -->
     <string name="content_bible_reading">Bible Reading</string>
