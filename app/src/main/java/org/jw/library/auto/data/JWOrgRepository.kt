@@ -88,7 +88,6 @@ class JWOrgRepository(
         private val SONG_NUMBER_REGEX = Regex("(\\d+)")
 
         // Mediator API categories
-        private const val MEDIATOR_LANGUAGE = "E"
         private const val CATEGORY_MONTHLY_PROGRAMS = "StudioMonthlyPrograms"
         private const val CATEGORY_GB_UPDATES = "StudioNewsReports"
         private const val CATEGORY_DRAMAS = "VOXDramas"
@@ -487,7 +486,7 @@ class JWOrgRepository(
     suspend fun getMonthlyPrograms(): List<BroadcastingProgram> {
         return try {
             val response = mediatorService.getCategory(
-                language = MEDIATOR_LANGUAGE,
+                language = langCode,
                 category = CATEGORY_MONTHLY_PROGRAMS
             )
             response.items().mapNotNull { item ->
@@ -516,7 +515,7 @@ class JWOrgRepository(
      */
     suspend fun getBibleDramas(forceRefresh: Boolean = false): List<BibleDrama> {
         val mediatorDramas = try {
-            val response = mediatorService.getCategory(MEDIATOR_LANGUAGE, CATEGORY_DRAMAS)
+            val response = mediatorService.getCategory(langCode, CATEGORY_DRAMAS)
             response.items().mapNotNull { item ->
                 val url = item.files?.firstOrNull()?.url ?: return@mapNotNull null
                 val id = item.guid ?: item.naturalKey ?: return@mapNotNull null
@@ -580,7 +579,7 @@ class JWOrgRepository(
     suspend fun getGoverningBodyUpdates(): List<BroadcastingProgram> {
         return try {
             val response = mediatorService.getCategory(
-                language = MEDIATOR_LANGUAGE,
+                language = langCode,
                 category = CATEGORY_GB_UPDATES
             )
             response.items().mapNotNull { item ->
