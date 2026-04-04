@@ -1,8 +1,10 @@
 package org.jw.library.auto.data
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.annotation.StringRes
 import org.jw.library.auto.R
+import java.util.Locale
 import org.jw.library.auto.data.model.KingdomSong
 import org.jw.library.auto.data.model.MediaContent
 import org.jw.library.auto.data.bible.BibleBooks
@@ -39,6 +41,18 @@ class ContentRepository(
     suspend fun clearCacheIfVersionChanged() = jwOrgRepository.clearCacheIfVersionChanged()
 
     fun clearLanguageCaches() = jwOrgRepository.clearLanguageCaches()
+
+    /**
+     * Returns a context whose locale matches the active content language so that
+     * getString() resolves the correct values-ro/ or values/ resource strings
+     * regardless of the device's system locale.
+     */
+    private fun localizedContext(): Context {
+        if (!LanguagePreference.isRomanian(context)) return context
+        val config = Configuration(context.resources.configuration)
+        config.setLocale(Locale("ro"))
+        return context.createConfigurationContext(config)
+    }
 
     suspend fun getChildren(parentId: String): List<MediaContent> = when {
         parentId == ROOT_ID -> listOf(
@@ -110,25 +124,25 @@ class ContentRepository(
         return listOf(
             MediaContent(
                 id = "$prefix-reading",
-                title = "$labelPrefix " + context.getString(R.string.content_bible_reading),
+                title = "$labelPrefix " + localizedContext().getString(R.string.content_bible_reading),
                 streamUrl = biblePlaylist.firstOrNull() ?: SAMPLE_AUDIO,
                 playlistUrls = biblePlaylist,
             ),
             MediaContent(
                 id = "$prefix-watchtower",
-                title = "$labelPrefix " + context.getString(R.string.content_watchtower),
+                title = "$labelPrefix " + localizedContext().getString(R.string.content_watchtower),
                 streamUrl = watchtowerUrl,
             ),
             MediaContent(
                 id = "$prefix-cbs",
-                title = "$labelPrefix " + context.getString(R.string.content_cbs),
+                title = "$labelPrefix " + localizedContext().getString(R.string.content_cbs),
                 subtitle = cbsSubtitle,
                 streamUrl = congregationPlaylist.firstOrNull() ?: SAMPLE_AUDIO,
                 playlistUrls = congregationPlaylist,
             ),
             MediaContent(
                 id = "$prefix-workbook",
-                title = "$labelPrefix " + context.getString(R.string.content_workbook),
+                title = "$labelPrefix " + localizedContext().getString(R.string.content_workbook),
                 streamUrl = workbookUrl,
             ),
         )
@@ -142,7 +156,7 @@ class ContentRepository(
             val last = group.last().number.toString().padStart(3, '0')
             MediaContent(
                 id = "$SONGS_GROUP_PREFIX$index",
-                title = context.getString(R.string.songs_group_label, first, last),
+                title = localizedContext().getString(R.string.songs_group_label, first, last),
                 isBrowsable = true,
             )
         }
@@ -168,7 +182,7 @@ class ContentRepository(
     private fun fallbackSongs(): List<MediaContent> = listOf(
         MediaContent(
             id = "song-demo-1",
-            title = context.getString(R.string.category_songs) + ": Demo",
+            title = localizedContext().getString(R.string.category_songs) + ": Demo",
             streamUrl = SAMPLE_AUDIO,
         )
     )
@@ -202,7 +216,7 @@ class ContentRepository(
             val last = minOf(first + CHAPTER_GROUP_SIZE - 1, audio.chapters.size)
             MediaContent(
                 id = "$bookId${CHAPTER_GROUP_PREFIX}$index",
-                title = context.getString(R.string.bible_chapter_group_label, first, last),
+                title = localizedContext().getString(R.string.bible_chapter_group_label, first, last),
                 isBrowsable = true,
             )
         }
@@ -238,7 +252,7 @@ class ContentRepository(
             val chapterNumber = index + 1
             MediaContent(
                 id = "$bookId-ch-$chapterNumber",
-                title = context.getString(R.string.bible_chapter_label, chapterNumber),
+                title = localizedContext().getString(R.string.bible_chapter_label, chapterNumber),
                 streamUrl = audio.chapters[index],
                 // Playlist from this chapter to end of book — pick up where you left off
                 playlistUrls = allUrls.drop(introOffset + index),
@@ -267,7 +281,7 @@ class ContentRepository(
             return listOf(
                 MediaContent(
                     id = "jwb-unavailable",
-                    title = context.getString(R.string.error_content_unavailable),
+                    title = localizedContext().getString(R.string.error_content_unavailable),
                     streamUrl = SAMPLE_AUDIO,
                 )
             )
@@ -277,7 +291,7 @@ class ContentRepository(
 
     private fun category(id: String, @StringRes title: Int) = MediaContent(
         id = id,
-        title = context.getString(title),
+        title = localizedContext().getString(title),
         isBrowsable = true,
     )
 }

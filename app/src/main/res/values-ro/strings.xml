@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JW Library Auto</string>
+
+    <!-- Content Categories -->
+    <string name="category_weekly_meetings">Ședințe Săptămânale</string>
+    <string name="category_this_week">Conținut Ședința Această Săptămână</string>
+    <string name="category_last_week">Conținut Săptămâna Trecută</string>
+    <string name="category_next_week">Conținut Săptămâna Viitoare</string>
+    <string name="category_songs">Cântări ale Împărăției</string>
+    <string name="songs_group_label">Cântări %1$s–%2$s</string>
+    <string name="category_bible">Biblia</string>
+    <string name="bible_chapter_label">Capitolul %d</string>
+    <string name="bible_chapter_group_label">Capitolele %1$d–%2$d</string>
+    <string name="category_bible_and_songs">Biblia și Cântări</string>
+    <string name="category_hebrew_scriptures">Scripturile Ebraice</string>
+    <string name="category_greek_scriptures">Scripturile Grecești</string>
+    <string name="category_broadcasting">JW Broadcasting</string>
+
+    <!-- Meeting Content -->
+    <string name="content_bible_reading">Citire din Biblie</string>
+    <string name="content_watchtower">Studiul Turnul de Veghe</string>
+    <string name="content_cbs">Studiul Biblic de Congregație</string>
+    <string name="content_workbook">Manualul de Ședință</string>
+    <string name="content_broadcasting_monthly">Program Lunar JW Broadcasting</string>
+    <string name="content_broadcasting_update">Actualizare Corp Conducător</string>
+
+    <!-- Playback -->
+    <string name="notification_channel_name">Redare Audio</string>
+    <string name="notification_channel_desc">Controale pentru redarea audio JW Library</string>
+
+    <!-- Notification Actions -->
+    <string name="action_play">Redă</string>
+    <string name="action_pause">Pauză</string>
+    <string name="action_stop">Oprește</string>
+    <string name="action_rewind_30">Înapoi 30s</string>
+    <string name="action_forward_2_min">Înainte 2m</string>
+    <string name="action_next">Piesa următoare</string>
+    <string name="action_previous">Piesa anterioară</string>
+
+    <!-- Errors -->
+    <string name="error_network">Eroare de rețea. Verificați conexiunea.</string>
+    <string name="error_content_unavailable">Conținut indisponibil</string>
+    <string name="error_playback">A apărut o eroare de redare</string>
+    <string name="tap_to_retry">Atingeți pentru a reîncerca</string>
+</resources>
