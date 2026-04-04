@@ -24,12 +24,12 @@ class ContentRepository(
         const val CATEGORY_THIS_WEEK = "this_week"
         const val CATEGORY_LAST_WEEK = "last_week"
         const val CATEGORY_NEXT_WEEK = "next_week"
-        private const val CATEGORY_BIBLE_AND_SONGS = "bible_and_songs"
-        private const val CATEGORY_SONGS = "songs"
+        const val CATEGORY_BIBLE_AND_SONGS = "bible_and_songs"
+        const val CATEGORY_SONGS = "songs"
         private const val SONGS_GROUP_PREFIX = "songs_group_"
         private const val SONG_GROUP_SIZE = 20
-        private const val CATEGORY_HEBREW_SCRIPTURES = "hebrew_scriptures"
-        private const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
+        const val CATEGORY_HEBREW_SCRIPTURES = "hebrew_scriptures"
+        const val CATEGORY_GREEK_SCRIPTURES = "greek_scriptures"
         private const val CATEGORY_BROADCASTING = "broadcasting"
         private val BIBLE_BOOK_ID_REGEX = Regex("bible-(hebrew|greek)-\\d+")
         private const val CHAPTER_GROUP_PREFIX = "-cg-"
@@ -188,7 +188,7 @@ class ContentRepository(
     )
 
     private fun bibleBooks(testament: Testament): List<MediaContent> =
-        BibleBooks.booksFor(testament).map { book ->
+        BibleBooks.booksFor(testament, jwOrgRepository.langCode).map { book ->
             MediaContent(
                 id = "bible-${testament.name.lowercase()}-${book.number}",
                 title = book.abbreviation,

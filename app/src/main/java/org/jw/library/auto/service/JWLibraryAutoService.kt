@@ -56,7 +56,17 @@ class JWLibraryAutoService : MediaBrowserServiceCompat() {
                 if (mediaId == ContentRepository.LANG_TOGGLE_ID) {
                     LanguagePreference.toggle(this@JWLibraryAutoService)
                     contentRepository.clearLanguageCaches()
-                    notifyChildrenChanged(ContentRepository.ROOT_ID)
+                    // Notify all tree levels so users see updated labels regardless of where they are
+                    listOf(
+                        ContentRepository.ROOT_ID,
+                        ContentRepository.CATEGORY_THIS_WEEK,
+                        ContentRepository.CATEGORY_LAST_WEEK,
+                        ContentRepository.CATEGORY_NEXT_WEEK,
+                        ContentRepository.CATEGORY_BIBLE_AND_SONGS,
+                        ContentRepository.CATEGORY_SONGS,
+                        ContentRepository.CATEGORY_HEBREW_SCRIPTURES,
+                        ContentRepository.CATEGORY_GREEK_SCRIPTURES,
+                    ).forEach { notifyChildrenChanged(it) }
                 } else {
                     // Re-fetch fresh URLs from contentRepository rather than trusting the
                     // potentially stale URL cached by the Android Auto Gearhead app.
