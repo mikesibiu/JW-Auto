@@ -49,9 +49,13 @@ class ContentRepository(
      * regardless of the device's system locale.
      */
     private fun localizedContext(): Context {
-        if (!LanguagePreference.isRomanian(context)) return context
+        val locale = when (LanguagePreference.get(context)) {
+            LanguagePreference.LANG_ROMANIAN -> Locale("ro")
+            LanguagePreference.LANG_FRENCH   -> Locale("fr")
+            else -> return context
+        }
         val config = Configuration(context.resources.configuration)
-        config.setLocale(Locale("ro"))
+        config.setLocale(locale)
         return context.createConfigurationContext(config)
     }
 

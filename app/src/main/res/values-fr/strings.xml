@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">JW Library Auto</string>
+
+    <!-- Content Categories -->
+    <string name="category_weekly_meetings">Réunions Hebdomadaires</string>
+    <string name="category_this_week">Contenu Réunion Cette Semaine</string>
+    <string name="category_last_week">Contenu Semaine Dernière</string>
+    <string name="category_next_week">Contenu Semaine Prochaine</string>
+    <string name="category_songs">Cantiques du Royaume</string>
+    <string name="songs_group_label">Cantiques %1$s–%2$s</string>
+    <string name="category_bible">Bible</string>
+    <string name="bible_chapter_label">Chapitre %d</string>
+    <string name="bible_chapter_group_label">Chapitres %1$d–%2$d</string>
+    <string name="category_bible_and_songs">Bible et Cantiques</string>
+    <string name="category_hebrew_scriptures">Écritures Hébraïques</string>
+    <string name="category_greek_scriptures">Écritures Grecques</string>
+    <string name="category_broadcasting">JW Broadcasting</string>
+    <string name="category_dramas">Drames Bibliques</string>
+
+    <!-- Meeting Content -->
+    <string name="content_bible_reading">Lecture de la Bible</string>
+    <string name="content_watchtower">Étude de La Tour de Garde</string>
+    <string name="content_cbs">Étude Biblique de la Congrégation</string>
+    <string name="content_workbook">Manuel de Réunion</string>
+    <string name="content_broadcasting_monthly">Programme Mensuel JW Broadcasting</string>
+    <string name="content_broadcasting_update">Mise à Jour du Collège Central</string>
+
+    <!-- Playback -->
+    <string name="notification_channel_name">Lecture Audio</string>
+    <string name="notification_channel_desc">Commandes pour la lecture audio JW Library</string>
+
+    <!-- Notification Actions -->
+    <string name="action_play">Lire</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_stop">Arrêter</string>
+    <string name="action_rewind_30">Retour 30s</string>
+    <string name="action_forward_2_min">Avance 2m</string>
+    <string name="action_next">Piste suivante</string>
+    <string name="action_previous">Piste précédente</string>
+
+    <!-- Errors -->
+    <string name="error_network">Erreur réseau. Vérifiez votre connexion.</string>
+    <string name="error_content_unavailable">Contenu indisponible</string>
+    <string name="error_playback">Une erreur de lecture s\'est produite</string>
+    <string name="tap_to_retry">Appuyez pour réessayer</string>
+</resources>

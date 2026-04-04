@@ -83,6 +83,76 @@ object BibleBooks {
         Book(66, "Rev", "Revelation", Testament.GREEK),
     )
 
+    /** French book names: number → (abbreviation, full title) */
+    private val FR_NAMES: Map<Int, Pair<String, String>> = mapOf(
+        1 to ("Gen" to "Genèse"),
+        2 to ("Ex" to "Exode"),
+        3 to ("Lév" to "Lévitique"),
+        4 to ("Nomb" to "Nombres"),
+        5 to ("Deut" to "Deutéronome"),
+        6 to ("Jos" to "Josué"),
+        7 to ("Jug" to "Juges"),
+        8 to ("Ruth" to "Ruth"),
+        9 to ("1 Sam" to "1 Samuel"),
+        10 to ("2 Sam" to "2 Samuel"),
+        11 to ("1 Rois" to "1 Rois"),
+        12 to ("2 Rois" to "2 Rois"),
+        13 to ("1 Chr" to "1 Chroniques"),
+        14 to ("2 Chr" to "2 Chroniques"),
+        15 to ("Esd" to "Esdras"),
+        16 to ("Néh" to "Néhémie"),
+        17 to ("Est" to "Esther"),
+        18 to ("Job" to "Job"),
+        19 to ("Ps" to "Psaumes"),
+        20 to ("Prov" to "Proverbes"),
+        21 to ("Eccl" to "Ecclésiaste"),
+        22 to ("Cant" to "Cantique des Cantiques"),
+        23 to ("Ésaïe" to "Ésaïe"),
+        24 to ("Jér" to "Jérémie"),
+        25 to ("Lam" to "Lamentations"),
+        26 to ("Ézéch" to "Ézéchiel"),
+        27 to ("Dan" to "Daniel"),
+        28 to ("Osée" to "Osée"),
+        29 to ("Joël" to "Joël"),
+        30 to ("Amos" to "Amos"),
+        31 to ("Abdias" to "Abdias"),
+        32 to ("Jonas" to "Jonas"),
+        33 to ("Mich" to "Michée"),
+        34 to ("Nahoum" to "Nahoum"),
+        35 to ("Hab" to "Habacuc"),
+        36 to ("Soph" to "Sophonie"),
+        37 to ("Agg" to "Aggée"),
+        38 to ("Zach" to "Zacharie"),
+        39 to ("Mal" to "Malachie"),
+        40 to ("Matt" to "Matthieu"),
+        41 to ("Marc" to "Marc"),
+        42 to ("Luc" to "Luc"),
+        43 to ("Jean" to "Jean"),
+        44 to ("Actes" to "Actes"),
+        45 to ("Rom" to "Romains"),
+        46 to ("1 Cor" to "1 Corinthiens"),
+        47 to ("2 Cor" to "2 Corinthiens"),
+        48 to ("Gal" to "Galates"),
+        49 to ("Éph" to "Éphésiens"),
+        50 to ("Phil" to "Philippiens"),
+        51 to ("Col" to "Colossiens"),
+        52 to ("1 Thes" to "1 Thessaloniciens"),
+        53 to ("2 Thes" to "2 Thessaloniciens"),
+        54 to ("1 Tim" to "1 Timothée"),
+        55 to ("2 Tim" to "2 Timothée"),
+        56 to ("Tite" to "Tite"),
+        57 to ("Philém" to "Philémon"),
+        58 to ("Héb" to "Hébreux"),
+        59 to ("Jac" to "Jacques"),
+        60 to ("1 Pierre" to "1 Pierre"),
+        61 to ("2 Pierre" to "2 Pierre"),
+        62 to ("1 Jean" to "1 Jean"),
+        63 to ("2 Jean" to "2 Jean"),
+        64 to ("3 Jean" to "3 Jean"),
+        65 to ("Jude" to "Jude"),
+        66 to ("Rév" to "Révélation"),
+    )
+
     /** Romanian book names: number → (abbreviation, full title) */
     private val RO_NAMES: Map<Int, Pair<String, String>> = mapOf(
         1 to ("Gen" to "Geneza"),
@@ -155,13 +225,17 @@ object BibleBooks {
 
     fun booksFor(testament: Testament): List<Book> = BOOKS.filter { it.testament == testament }
 
-    /** Returns books for a testament with names localized to [lang] ("E" or "M"). */
+    /** Returns books for a testament with names localized to [lang] ("E", "F", or "M"). */
     fun booksFor(testament: Testament, lang: String): List<Book> {
         val books = BOOKS.filter { it.testament == testament }
-        if (lang != "M") return books
+        val nameMap = when (lang) {
+            "F" -> FR_NAMES
+            "M" -> RO_NAMES
+            else -> return books
+        }
         return books.map { book ->
-            val ro = RO_NAMES[book.number] ?: return@map book
-            book.copy(abbreviation = ro.first, title = ro.second)
+            val localized = nameMap[book.number] ?: return@map book
+            book.copy(abbreviation = localized.first, title = localized.second)
         }
     }
 
