@@ -2,14 +2,32 @@
 JW LIBRARY AUTO - INSTALLATION GUIDE
 ========================================
 
-Version: 1.0.4
+Version: 1.0.6
 App: JW Library Auto for Android Auto
 
 This app allows you to listen to JW.org content through
 Android Auto while driving. Content includes:
+
 - Weekly Meeting Content (This Week, Last Week, Next Week)
-- Bible & Songs (Hebrew/Greek Scriptures, Kingdom Songs with vocals)
-- JW Broadcasting (Monthly Programs + Governing Body Updates)
+    • Bible Reading
+    • Watchtower Study
+    • Congregation Bible Study
+    • Meeting Workbook
+
+- Bible & Songs
+    • Hebrew Scriptures (39 books, browse by chapter)
+    • Greek Scriptures (27 books, browse by chapter)
+    • Kingdom Songs (with vocals, grouped for easy browsing)
+
+- JW Broadcasting
+    • Bible Dramas
+    • Monthly Programs (hosted by Governing Body members)
+    • Governing Body Updates
+
+- Language Support: English / Français / Română
+    • Tap the language toggle at the top of the main menu
+    • Cycles EN → FR → RO → EN
+    • Auto-detects your phone's language
 
 
 ========================================
@@ -41,7 +59,7 @@ STEP 3: INSTALL THE APK
 ========================================
 
 Option A - Transfer via USB/Cloud:
-1. Copy "JW-Library-Auto-v1.0.4.apk" to your phone
+1. Copy "JW-Library-Auto-v1.0.6.apk" to your phone
 2. Use your file manager to locate the APK
 3. Tap the APK file
 4. Tap "Install" when prompted
@@ -89,14 +107,14 @@ STEP 5: USE IN YOUR CAR
 
 4. Look for "JW Library Auto" in the list of media apps
 
-5. Tap it to browse content:
-   - Weekly Meetings
-   - Bible & Songs
-   - JW Broadcasting
+5. Tap it to browse content
 
-6. Select any item to start playback
+6. At the top of the main menu, tap the language item
+   to switch between English, Français, and Română
 
-7. Use car controls for play/pause, skip, etc.
+7. Select any item to start playback
+
+8. Use car controls for play/pause, skip, etc.
 
 
 ========================================
@@ -110,7 +128,11 @@ App doesn't appear in Android Auto:
 
 No content showing:
 - Make sure you have internet connection
-- The app fetches content from jw.org
+- The app fetches content live from jw.org
+
+Language not switching:
+- Tap the "🌐" item at the very top of the main menu
+- It cycles: English → Français → Română → English
 
 Playback issues:
 - Check your internet connection
@@ -128,31 +150,38 @@ CONTENT OVERVIEW
 
 WEEKLY MEETINGS:
 - This Week's Meeting Content
-  - Bible Reading
-  - Watchtower Study
-  - Congregation Bible Study
-  - Meeting Workbook
-- Last Week's Content
-- Next Week's Content
+  • Bible Reading (playlist from assigned chapters)
+  • Watchtower Study
+  • Congregation Bible Study (LFB lessons)
+  • Meeting Workbook
+- Last Week's Content (same 4 items)
+- Next Week's Content (same 4 items)
 
 BIBLE & SONGS:
 - Hebrew Scriptures (39 books)
-- Greek Scriptures (27 books)
-- Kingdom Songs (with vocals)
+  • Each book shows chapters, grouped for easy browsing
+  • Tapping a chapter plays from that chapter to end of book
+- Greek Scriptures (27 books, same layout)
+- Kingdom Songs (vocals) grouped for easy scrolling
 
 JW BROADCASTING:
-- Monthly Programs (hosted by Governing Body members)
-- Governing Body Updates
-- All sorted by newest first
+- Bible Dramas
+- Monthly Programs (newest first)
+- Governing Body Updates (newest first)
+
+LANGUAGES SUPPORTED:
+- English (EN)
+- Français (FR) — Bible, Songs, Watchtower, CBS, Broadcasting
+- Română (RO) — Bible, Songs, Watchtower, CBS, Broadcasting
+  Note: Meeting Workbook audio is English-only for FR and RO
 
 
 ========================================
 VERSION INFO
 ========================================
 
-Release: JW-Library-Auto-v1.0.4.apk (7.9 MB)
-
-Use the Release version for normal use.
+Release: JW-Library-Auto-v1.0.6.apk
+Date: April 2026
 
 Requires: Android 7.0+ and Android Auto
 
